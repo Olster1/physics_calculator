@@ -99,10 +99,9 @@ bool vm_isError(VmOperation op) {
 }
 
 VmMachineState initVmMachineState() {
-    refreshVmCompileMemoryArena();
     VmMachineState state = {};
     state.stackSizeMaxBytes = Megabytes(5);
-    state.at = state.stackBase = (u8 *)pushSize(&globalPerVmCompileLifetime, state.stackSizeMaxBytes);
+    state.at = state.stackBase = (u8 *)pushSize(&globalPerFrameArena, state.stackSizeMaxBytes);
     return state;
 }
 

@@ -17,7 +17,7 @@ void updateGame(GameState *gameState) {
         gameState->calculatorLineCount = 0;
 
         //TODO: Memory leak if we clear the whole cacluator, use another lifetime arena
-        gameState->codeToRun = easy_createString_printf(&globalLongTermArena, "%s;%s",  gameState->codeToRun, gameState->stringBuffer.string);
+        gameState->codeToRun = easy_createString_printf(&globalLongTermArena, "%s%s;",  gameState->codeToRun, gameState->stringBuffer.string);
 
         //TODO: Run through all code to find number of new lines
         int numberOfLines = 0; //ERROR: codeToRun;

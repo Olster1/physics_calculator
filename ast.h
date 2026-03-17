@@ -103,6 +103,7 @@ AstNode *createAndAddNode(AstTree *tree, AstPrecendence precedence, EasyToken to
                 //NOTE: Check if this is just one pop
             }
         }
+
         if(tree->current->precedence >= node->precedence || precedence == AST_SAME || precedence == AST_POP) {
             //NOTE: Same precedence so keep on same level
             assert(!tree->current->next);
@@ -194,6 +195,9 @@ AstVariable *getCompilerVariable(CompilerState *state, char *name) {
 AstPrecendence getPrecedenceForToken(EasyToken t) {
     AstPrecendence precedence = AST_NONE;
     switch(t.type) {
+        case TOKEN_SEMI_COLON: {
+            precedence = AST_SAME;
+        } break;
         case TOKEN_PLUS:
         case TOKEN_MINUS: {
             precedence = AST_PLUS_MINUS;

@@ -33,6 +33,7 @@ AstNode *parseExpression(CompilerState *state, AstNode *node) {
     AstNode *postNodeOperation = {};
     
     while(parse) {
+        bool addedThisLoop = false;
         if(node->token.type != TOKEN_SEMI_COLON) {
             if(node->child) {
                 parseExpression(state, node->child);
@@ -51,6 +52,7 @@ AstNode *parseExpression(CompilerState *state, AstNode *node) {
                 if(node->operationType == AST_OPERATION_POST) {
                     //NOTE: Have to push the values on first. Have already pushed the first one becuase it came before
                     postNodeOperation = node;
+                    addedThisLoop = true;
                 } else {
                     pushArrayItem(state->operations, node->operation, VmOperation);
                 }
@@ -65,7 +67,7 @@ AstNode *parseExpression(CompilerState *state, AstNode *node) {
         } else {
             parse = false;
         }
-        if(postNodeOperation) {
+        if(!addedThisLoop && postNodeOperation) {
             pushArrayItem(state->operations, postNodeOperation->operation, VmOperation);
             postNodeOperation = 0;
         }
@@ -145,10 +147,12 @@ void compileToByteCode(char *codeToCompile, VmOperation **operations) {
             parsing = false;
         } else if(t.type == TOKEN_SEMI_COLON) {
             //NOTE: Add string 
-
-            VmOperation data = { .type = OP_CODE_PRINT };
-            pushArrayItem(operations, data, VmOperation);
+            createAndAddNode(tree, getPrecedenceForToken(t), t, { .type = OP_CODE_NONE }, getAstTypeForToken(t), getOperationType(t));
         } else if(t.type == TOKEN_OPEN_BRACKET) {
+        } else if(t.type == TOKEN_OPEN_PARENTHESIS) {
+            createAndAddNode(tree, getPrecedenceForToken(t), t, { .type = OP_CODE_NONE }, getAstTypeForToken(t), getOperationType(t));
+        } else if(t.type == TOKEN_CLOSE_PARENTHESIS) {
+            createAndAddNode(tree, getPrecedenceForToken(t), t, { .type = OP_CODE_NONE }, getAstTypeForToken(t), getOperationType(t));
         } else if(t.type == TOKEN_INTEGER) {
             createAndAddNode(tree, getPrecedenceForToken(t), t, { .type = OP_CODE_NUMBER, .value_= (double)t.intVal }, getAstTypeForToken(t), getOperationType(t));
         } else if(t.type == TOKEN_FLOAT) { 
@@ -161,9 +165,6 @@ void compileToByteCode(char *codeToCompile, VmOperation **operations) {
             createAndAddNode(tree, getPrecedenceForToken(t), t, { .type = OP_CODE_MULTIPLY }, getAstTypeForToken(t), getOperationType(t));
         } else if(t.type == TOKEN_FORWARD_SLASH) { 
             createAndAddNode(tree, getPrecedenceForToken(t), t, { .type = OP_CODE_DIVIDE }, getAstTypeForToken(t), getOperationType(t));
-        } else if(t.type == TOKEN_NEWLINE) { 
-            // VmOperation data = { .type = OP_CODE_PRINT };
-            // pushArrayItem(operations, data, VmOperation);
         } else if(t.type == TOKEN_WORD) { 
             if(easyString_stringsMatch_null_and_count("sin", t.at, t.size)) {
                 createAndAddNode(tree, getPrecedenceForToken(t), t, { .type = OP_CODE_SIN }, getAstTypeForToken(t), getOperationType(t));

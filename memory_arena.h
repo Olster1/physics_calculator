@@ -173,11 +173,9 @@ static Arena globalLongTermArena;
 static Arena globalPerFrameArena;
 static Arena globalBoardValuesArena;
 static Arena globalPerVmRunLifetime;
-static Arena globalPerVmCompileLifetime;
 static MemoryArenaMark boardValuesArenaMark;
 static MemoryArenaMark perFrameArenaMark;
 static MemoryArenaMark perVmArenaMark;
-static MemoryArenaMark perVmCompileArenaMark;
 
 char *nullTerminateBuffer(char *result, char *string, int length) {
     for(int i = 0; i < length; ++i) {
@@ -262,10 +260,6 @@ void refreshVmMemoryArena() {
     perVmArenaMark = takeMemoryMark(&globalPerVmRunLifetime);
 }
 
-void refreshVmCompileMemoryArena() {  
-    releaseMemoryMark(&perVmCompileArenaMark);
-    perVmCompileArenaMark = takeMemoryMark(&globalPerVmCompileLifetime);
-}
 void refreshPerFrameArena() {
     releaseMemoryMark(&perFrameArenaMark);
     perFrameArenaMark = takeMemoryMark(&globalPerFrameArena);
