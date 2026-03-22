@@ -17,7 +17,7 @@ void updateGame(GameState *gameState) {
         gameState->calculatorLineCount = 0;
 
         //TODO: Memory leak if we clear the whole cacluator, use another lifetime arena
-        gameState->codeToRun = easy_createString_printf(&globalLongTermArena, "%s%s;",  gameState->codeToRun, gameState->stringBuffer.string);
+        char *codeToRun = easy_createString_printf(&globalLongTermArena, "%s%s;",  gameState->codeToRun, gameState->stringBuffer.string);
 
         //TODO: Run through all code to find number of new lines
         int numberOfLines = 0; //ERROR: codeToRun;
@@ -25,9 +25,14 @@ void updateGame(GameState *gameState) {
         gameState->calculatorLines = pushArray(&globalPerVmRunLifetime, numberOfLines, CalculatorLine);
         gameState->stringBuffer.string = 0;
 
-        compileToByteCode(gameState->codeToRun, &gameState->operations);
-       
-        runCode(gameState, gameState->operations, getArrayLength(gameState->operations));
+        bool error = compileToByteCode(codeToRun, &gameState->operations);
+        
+        bool clear = runCode(gameState, gameState->operations, getArrayLength(gameState->operations));
+
+        if(!error && !clear) {
+            gameState->codeToRun = codeToRun;
+        }
+        
     }
 
     float lineHeight = 5;

@@ -135,11 +135,15 @@ double vm_getAngle(VmMachineState *state, double value) {
     return (state->useRadians) ? value : degreesToRadians(value);
 }
 
-void runCode(GameState *gameState, VmOperation *operations, int operationCount) {
+bool runCode(GameState *gameState, VmOperation *operations, int operationCount) {
     VmMachineState state = initVmMachineState();
+
+    bool clear = false;
 
     for(int i = 0; i < operationCount; ++i) {
         VmOperation *op = operations + i;
+
+        printf("%s\n", OpCodeTypeStrings[op->type]);
 
         switch (op->type) {
             // --- Vector Operations ---
@@ -162,6 +166,8 @@ void runCode(GameState *gameState, VmOperation *operations, int operationCount) 
 
                 StringBuffer b = {};
                 b.string = easy_createString_printf(&globalPerVmRunLifetime, "%f", value);
+
+                printf("%s\n", b.string);
 
                 // pushArrayItem(&gameState->declarationsInput, b, StringBuffer);
                 break;
@@ -202,7 +208,7 @@ void runCode(GameState *gameState, VmOperation *operations, int operationCount) 
                 double value = popAndGetValueNumber(&state);
                 VmOperation newOp = { .type = OP_CODE_NUMBER};
                 newOp.value_ = sin(vm_getAngle(&state, value));
-                printf("%f\n", newOp.value_);
+                
                 vmMachine_push(&state, newOp);
                 break;
             }
@@ -270,6 +276,7 @@ void runCode(GameState *gameState, VmOperation *operations, int operationCount) 
                     newOp.value_ = vmOp_getValue(&state, op) + vmOp_getValue(&state, op1);
                     vmMachine_push(&state, newOp);
                     printf("%f\n", newOp.value_);
+                    
                 }   
                 break;
             }
@@ -279,7 +286,7 @@ void runCode(GameState *gameState, VmOperation *operations, int operationCount) 
                 if(!vm_isError(op) && !vm_isError(op1)) {
                     VmOperation newOp = {};
                     newOp.type = OP_CODE_NUMBER;
-                    newOp.value_ = vmOp_getValue(&state, op) - vmOp_getValue(&state, op1);
+                    newOp.value_ = vmOp_getValue(&state, op1) - vmOp_getValue(&state, op);
                     vmMachine_push(&state, newOp);
                     printf("%f\n", newOp.value_);
                 }   
@@ -303,10 +310,29 @@ void runCode(GameState *gameState, VmOperation *operations, int operationCount) 
                 if(!vm_isError(op) && !vm_isError(op1)) {
                     VmOperation newOp = {};
                     newOp.type = OP_CODE_NUMBER;
-                    newOp.value_ = vmOp_getValue(&state, op) / vmOp_getValue(&state, op1);
+                    newOp.value_ = vmOp_getValue(&state, op1) / vmOp_getValue(&state, op);
                     vmMachine_push(&state, newOp);
                     printf("%f\n", newOp.value_);
                 }   
+                break;
+            }
+              case OP_CODE_POWER_TO: {
+                VmOperation op = vmMachine_pop(&state);
+                VmOperation op1 = vmMachine_pop(&state);
+                if(!vm_isError(op) && !vm_isError(op1)) {
+                    VmOperation newOp = {};
+                    newOp.type = OP_CODE_NUMBER;
+                    newOp.value_ = pow(vmOp_getValue(&state, op1), vmOp_getValue(&state, op));
+                    vmMachine_push(&state, newOp);
+                    printf("%f\n", newOp.value_);
+                }   
+                break;
+            }
+            case OP_CODE_CLEAR: {
+                //NOTE: Clear the old code 
+                clearCalculatorBuffer(gameState);
+                clear = true;
+                
                 break;
             }
 
@@ -323,4 +349,5 @@ void runCode(GameState *gameState, VmOperation *operations, int operationCount) 
             }
         }
     }
+    return clear;
 }

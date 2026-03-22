@@ -1,2 +1,2 @@
 ./build.sh
-./bin/KenKen
+./bin/Calculator

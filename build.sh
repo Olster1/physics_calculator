@@ -26,4 +26,4 @@ $CXX ./platform_backends/sdl_platform_layer.cpp \
   -Wl,-rpath,@executable_path/../Frameworks \
   -Wl,-rpath,"$SDL_FRAMEWORK_SLICE" \
   -Wl,-rpath,"$SDL_IMAGE_FRAMEWORK_SLICE" \
-  -o ./bin/KenKen
+  -o ./bin/Calculator

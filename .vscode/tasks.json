@@ -39,7 +39,7 @@
                 "-Wl,-rpath,/Library/Frameworks/SDL3_image.xcframework/macos-arm64_x86_64",
                 "-Wl,-rpath,/Library/Frameworks/SDL3_ttf.xcframework/macos-arm64_x86_64",
                 "-o",
-                "./bin/KenKen"
+                "./bin/Calculator"
             ],
             "options": {
                 "cwd": "${workspaceFolder}"

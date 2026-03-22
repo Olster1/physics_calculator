@@ -1,10 +1,14 @@
 enum AstPrecendence {
     AST_NONE,
+    AST_PUSH,
+    AST_POP_ALL,
     AST_POP,
     AST_SAME,
     AST_PLUS_MINUS,
     AST_MULTIPLY_DIVIDE,
-    AST_PUSH,
+    AST_EXPONENT,
+    AST_HIGHEST_PRECEDENCE,
+    
 };
 
 enum AstType {
@@ -26,6 +30,7 @@ AstOperationType getOperationType(EasyToken t) {
         case TOKEN_ASTRIX:
         case TOKEN_FORWARD_SLASH:
         case TOKEN_PLUS:
+        case TOKEN_CARROT:
         case TOKEN_MINUS: {
             result = AST_OPERATION_POST;
         } break;
@@ -46,11 +51,14 @@ AstType getAstTypeForToken(EasyToken t, bool isKeyword = true) {
                 result = AST_TYPE_VALUE;
             }
         } break;
+        case TOKEN_OPEN_PARENTHESIS: {
+            result = AST_TYPE_PARENT;
+        } break;
         case TOKEN_EQUALS:
         case TOKEN_PLUS:
-        case TOKEN_OPEN_PARENTHESIS:
         case TOKEN_CLOSE_PARENTHESIS:
         case TOKEN_ASTRIX:
+        case TOKEN_CARROT:
         case TOKEN_FORWARD_SLASH:
         case TOKEN_MINUS: {
             result = AST_TYPE_OPERATION;
@@ -86,25 +94,41 @@ struct AstTree {
     AstNode *current;
 };
 
+void astPopToRoot(AstTree *tree) {
+    if(tree->current) {
+        //NOTE: Pop all the way back to the top of the tree.
+        while(tree->current->parent) {
+            assert(tree->current->parent);
+            tree->current = tree->current->parent;
+        }
+    }
+}
+
 AstNode *createAndAddNode(AstTree *tree, AstPrecendence precedence, EasyToken token, VmOperation operation, AstType astType, AstOperationType operationType) {
     AstNode *node = pushStruct(&globalPerFrameArena, AstNode);
     node->type = astType;
-
+    
     if(tree->current) {
+        
         //NOTE: Popup back to last matching parent
         if(precedence == AST_POP) {
             //NOTE: Just pop once
             assert(tree->current->parent);
             tree->current = tree->current->parent;
-        } else if(precedence != AST_SAME) {
-            while(tree->current->parent && tree->current->precedence > node->precedence) {
+        } else if(precedence == AST_POP_ALL) {
+            //NOTE: Pop all the way back to the top of the tree.
+            while(tree->current->parent) {
                 assert(tree->current->parent);
                 tree->current = tree->current->parent;
-                //NOTE: Check if this is just one pop
+            }
+        } else if(precedence != AST_SAME && precedence != AST_PUSH && tree->current->precedence != AST_HIGHEST_PRECEDENCE) {
+            while(tree->current->parent && tree->current->precedence > precedence) {
+                assert(tree->current->parent);
+                tree->current = tree->current->parent;
             }
         }
 
-        if(tree->current->precedence >= node->precedence || precedence == AST_SAME || precedence == AST_POP) {
+        if(tree->current->precedence >= precedence || precedence == AST_POP) {
             //NOTE: Same precedence so keep on same level
             assert(!tree->current->next);
             tree->current->next = node;
@@ -113,28 +137,55 @@ AstNode *createAndAddNode(AstTree *tree, AstPrecendence precedence, EasyToken to
             if(precedence == AST_SAME || precedence == AST_POP) {
                 precedence = tree->current->precedence;
             }
+            if(tree->current->precedence == AST_HIGHEST_PRECEDENCE) {
+                //NOTE: Default back to same value
+                tree->current->precedence = AST_SAME;
+            }
+        } else if(tree->current->child) {
+            AstNode *parentNode = pushStruct(&globalPerFrameArena, AstNode);
+            parentNode->type = AST_TYPE_PARENT;
+            parentNode->precedence = tree->current->precedence;
+            parentNode->parent = tree->current->parent;
+            tree->current->next = parentNode;
+            tree->current = parentNode;
+            node->parent = parentNode;
+
+            tree->current->child = node;
         } else {
             assert(!tree->current->child);
             //NOTE: Make as child
             //NOTE: Make a parent node to set as the top, then bring down the current one with it
-            AstNode *childNode = pushStruct(&globalPerFrameArena, AstNode);
-            *childNode = *tree->current;
-            childNode->parent = tree->current;
-            tree->current->type = AST_TYPE_PARENT;
-            tree->current->child = childNode;
-            node->parent = tree->current;
-            childNode->next = node;
+            if(tree->current->type == AST_TYPE_VALUE) {
+                AstNode *childNode = pushStruct(&globalPerFrameArena, AstNode);
+                *childNode = *tree->current;
+                childNode->parent = tree->current;
+                tree->current->type = AST_TYPE_PARENT;
+                tree->current->child = childNode;
+                node->parent = tree->current;
+                childNode->next = node;
+            } else {
+                //NOTE: Just put the new node as a child
+                node->parent = tree->current;
+                tree->current->child = node;
+
+                //NOTE: Put precedence as the highest level
+                if(node->type != AST_TYPE_PARENT) {
+                    assert(node->type == AST_TYPE_VALUE);
+                    precedence = AST_HIGHEST_PRECEDENCE;
+                }
+                
+            }
         }
         tree->current = node;
     } else {
-        //NOTE: First node so just set it
-        tree->current = tree->start = node;
+        assert(false);
     }
-
+    
     node->precedence = precedence;
     node->token = token;
     node->operation = operation;
     node->operationType = operationType;
+    
 
     return node;
 }
@@ -196,7 +247,7 @@ AstPrecendence getPrecedenceForToken(EasyToken t) {
     AstPrecendence precedence = AST_NONE;
     switch(t.type) {
         case TOKEN_SEMI_COLON: {
-            precedence = AST_SAME;
+            precedence = AST_POP_ALL;
         } break;
         case TOKEN_PLUS:
         case TOKEN_MINUS: {
@@ -212,6 +263,9 @@ AstPrecendence getPrecedenceForToken(EasyToken t) {
         case TOKEN_FORWARD_SLASH: {
             precedence = AST_MULTIPLY_DIVIDE;
         } break;
+        case TOKEN_CARROT: {
+            precedence = AST_EXPONENT;
+        } break;
         case TOKEN_OPEN_PARENTHESIS: {
             precedence = AST_PUSH;
         } break;
@@ -223,4 +277,53 @@ AstPrecendence getPrecedenceForToken(EasyToken t) {
         }
     }
     return precedence;
+}
+
+
+void printAstNodeAdvanced(AstNode *node, char *prefix, bool isLast) {
+    if (!node) return;
+
+    // 1. Print the current indentation and the branch character
+    printf("%s", prefix);
+    printf(isLast ? "└── " : "├── ");
+
+    // 2. Print the token
+    if(node->type == AST_TYPE_PARENT) {
+        printf("PARENT NODE: ");
+        DEBUG_lexPrintToken(&node->token);
+    } else {
+        DEBUG_lexPrintToken(&node->token);
+    }
+    
+    printf("\n");
+
+    // 3. Prepare the prefix for the children
+    // We append either a vertical bar or a space depending on if this node has more siblings
+    char newPrefix[256]; 
+    snprintf(newPrefix, sizeof(newPrefix), "%s%s", prefix, isLast ? "    " : "│   ");
+
+    // 4. Recurse to the first child
+    if (node->child) {
+        AstNode *c = node->child;
+        while (c != NULL) {
+            // A child is the "last" if its next pointer is null
+            printAstNodeAdvanced(c, newPrefix, c->next == NULL);
+            c = c->next;
+        }
+    }
+}
+
+void printAstTree(AstTree *tree) {
+    if (!tree || !tree->start) {
+        printf("(Empty Tree)\n");
+        return;
+    }
+
+    AstNode *node = tree->start;
+    while(node) {
+        // Start recursion with an empty prefix and true (since root is the only node at its level)
+        printAstNodeAdvanced(node, "", true);
+        node = node->next;
+    }
+    
 }

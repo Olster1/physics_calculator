@@ -107,3 +107,12 @@ struct GameState {
     Camera camera;
 };
 
+
+void clearCalculatorBuffer(GameState *gameState) {
+    refreshVmMemoryArena();
+    clearResizeArray(gameState->operations);
+    gameState->calculatorLineCount = 0;
+
+    //TODO: Memory leak if we clear the whole cacluator, use another lifetime arena when I allocate it - not the long term arena
+    gameState->codeToRun = 0;
+}
