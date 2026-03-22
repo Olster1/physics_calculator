@@ -415,61 +415,7 @@ EasyToken lexGetToken_(EasyTokenizer *tokenizer, bool advanceWithToken) {
                     at++;
                 }
                 token.size = at - token.at;
-                token.isKeyword = true;
-
-                    
-                if(easyString_stringsMatch_null_and_count("new", token.at, token.size)) {
-                    token.type = TOKEN_NEW_KEYWORD;
-                } else if(easyString_stringsMatch_null_and_count("for", token.at, token.size)) {
-                    token.type = TOKEN_FOR_KEYWORD;
-                } else if(easyString_stringsMatch_null_and_count("else", token.at, token.size)) {
-                    token.type = TOKEN_ELSE;
-                } else if(easyString_stringsMatch_null_and_count("if", token.at, token.size)) {
-                    token.type = TOKEN_IF_KEYWORD;
-                } else if(easyString_stringsMatch_null_and_count("struct", token.at, token.size)) {
-                    token.type = TOKEN_STRUCT_KEYWORD;
-                } else if(easyString_stringsMatch_null_and_count("while", token.at, token.size)) {
-                    token.type = TOKEN_WHILE_KEYWORD;
-                } else if(easyString_stringsMatch_null_and_count("return", token.at, token.size)) {
-                    token.type = TOKEN_RETURN_KEYWORD;
-                } else if(easyString_stringsMatch_null_and_count("break", token.at, token.size)) {
-                    token.type = TOKEN_BREAK_KEYWORD;
-                } else if(easyString_stringsMatch_null_and_count("typedef", token.at, token.size)) {
-                    token.type = TOKEN_TYPEDEF_KEYWORD;
-                } else if(easyString_stringsMatch_null_and_count("namespace", token.at, token.size)) {
-                    token.type = TOKEN_NAMESPACE_KEYWORD;
-                } else if(easyString_stringsMatch_null_and_count("public", token.at, token.size)) {
-                    token.type = TOKEN_PUBLIC_KEYWORD;
-                } else if(easyString_stringsMatch_null_and_count("private", token.at, token.size)) {
-                    token.type = TOKEN_PRIVATE_KEYWORD;
-                } else if(easyString_stringsMatch_null_and_count("case", token.at, token.size)) {
-                    token.type = TOKEN_CASE_KEYWORD;
-                } else if(easyString_stringsMatch_null_and_count("class", token.at, token.size)) {
-                    token.type = TOKEN_CLASS_KEYWORD;
-                } else if(easyString_stringsMatch_null_and_count("float", token.at, token.size)) {
-                    token.isType = true;
-                    token.isKeyword = false;
-                } else if(easyString_stringsMatch_null_and_count("true", token.at, token.size)) {
-                    token.isType = true;
-                    token.isKeyword = false;
-                } else if(easyString_stringsMatch_null_and_count("false", token.at, token.size)) {
-                    token.isType = true;
-                    token.isKeyword = false;
-                } else if(easyString_stringsMatch_null_and_count("int", token.at, token.size)) {
-                    token.isType = true;
-                    token.isKeyword = false;
-                } else if(easyString_stringsMatch_null_and_count("bool", token.at, token.size)) {
-                    token.isType = true;
-                    token.isKeyword = false;
-                } else if(easyString_stringsMatch_null_and_count("double", token.at, token.size)) {
-                    token.isType = true;
-                    token.isKeyword = false;
-                } else if(at[0] == '(') {
-                    token.type = TOKEN_FUNCTION;
-                    token.isKeyword = false;
-                } else {
-                    token.isKeyword = false;
-                }
+                token.isKeyword = false;
                 
                 
             } else if(lexIsNumeric(*at)) {

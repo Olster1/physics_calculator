@@ -170,7 +170,7 @@ AstNode *createAndAddNode(AstTree *tree, AstPrecendence precedence, EasyToken to
 
                 //NOTE: Put precedence as the highest level
                 if(node->type != AST_TYPE_PARENT) {
-                    assert(node->type == AST_TYPE_VALUE);
+                    // assert(node->type == AST_TYPE_VALUE);
                     precedence = AST_HIGHEST_PRECEDENCE;
                 }
                 

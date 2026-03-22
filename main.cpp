@@ -26,8 +26,11 @@ void updateGame(GameState *gameState) {
         gameState->stringBuffer.string = 0;
 
         bool error = compileToByteCode(codeToRun, &gameState->operations);
-        
-        bool clear = runCode(gameState, gameState->operations, getArrayLength(gameState->operations));
+
+        bool clear = false;
+        if(!error) {
+            clear = runCode(gameState, gameState->operations, getArrayLength(gameState->operations));
+        }
 
         if(!error && !clear) {
             gameState->codeToRun = codeToRun;

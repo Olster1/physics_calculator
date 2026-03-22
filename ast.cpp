@@ -60,14 +60,14 @@ AstNode *parseExpression(CompilerState *state, AstNode *node) {
                 state->error = "Expected an operator";
             }
         } else if(node->type == AST_TYPE_OPERATION) {
-            if(node->operationType == AST_OPERATION_POST) {
+            // if(node->operationType == AST_OPERATION_POST) {
                 //NOTE: Have to push the values on first. Have already pushed the first one becuase it came before
                 postNodeOperation = node;
                 DEBUG_lexPrintToken(&node->token);
                 addedThisLoop = true;
-            } else {
-                pushArrayItem(state->operations, node->operation, VmOperation);
-            }
+            // } else {
+            //     pushArrayItem(state->operations, node->operation, VmOperation);
+            // }
 
             if(!isEndingInstruction(node)) {
                 if(!node->next) {
