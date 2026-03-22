@@ -90,8 +90,6 @@ static void updateFrame(void* arg) {
   gameState->dt = (float)(now - lastTicks) / 1000.0f;
   lastTicks = now;
 
-  backend_render_clearFrame(make_float4(1, 1, 1, 1));
-
   getMouseData(gameState);
 
   updateGame(gameState);

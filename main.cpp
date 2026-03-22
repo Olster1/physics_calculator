@@ -1,7 +1,46 @@
 #include "./includes.h"
 
+Rect2f renderTextAsTokens(GameState *gameState, char *string, float2 at) {
+    Rect2f totalBounds = {};
+    EasyTokenizer tokenizer = lexBeginParsing(string, EASY_LEX_OPTION_NONE);
+    bool parsing = true;
+    while(parsing) {
+        
+        EasyToken token = lexGetNextToken(&tokenizer);
+        if(token.type == TOKEN_NULL_TERMINATOR) {
+            parsing = false;
+        } else {
+            
+            float4 text_color = gameState->colorPallette->standard;
+            if(token.type == TOKEN_INTEGER || token.type == TOKEN_FLOAT) {		
+                text_color = gameState->colorPallette->variable;
+            } else if(token.type == TOKEN_STRING) {
+                text_color = gameState->colorPallette->string;
+            } else if(token.type == TOKEN_OPEN_BRACKET || token.type == TOKEN_CLOSE_BRACKET || token.type == TOKEN_OPEN_SQUARE_BRACKET || token.type == TOKEN_CLOSE_SQUARE_BRACKET) {		
+                text_color = gameState->colorPallette->bracket;
+            } else if(token.type == TOKEN_WORD) {		
+                text_color = gameState->colorPallette->keyword;
+            } else if(token.isKeyword || token.isType) {		
+                text_color = gameState->colorPallette->keyword;
+            } else if(token.type == TOKEN_COMMENT) {		
+                text_color = gameState->colorPallette->comment;
+            } else if(token.type == TOKEN_PREPROCESSOR) {		
+                text_color = gameState->colorPallette->preprocessor;
+            }
+
+            char *strToDraw = nullTerminateArena(token.at, token.size, &globalPerFrameArena);
+            Rect2f bounds = renderText(&gameState->renderer, &gameState->mainFont, strToDraw, at, BODY_FONT_SCALE, text_color);
+            at.x += get_scale_rect2f(bounds).x;
+
+            totalBounds = rect2f_union(totalBounds, bounds);
+        }
+    }
+    return totalBounds;
+}
 void updateGame(GameState *gameState) {
     assert(gameState->initialized);
+
+    backend_render_clearFrame(gameState->colorPallette->background);
 
     float scaleFactor = 0.1f;
     float2 plane = make_float2(scaleFactor*gameState->settingsToSave.windowX, scaleFactor*gameState->settingsToSave.windowY);
@@ -44,7 +83,8 @@ void updateGame(GameState *gameState) {
     for(int i = gameState->calculatorLineCount - 1; i >= 0; --i) {
         CalculatorLine *b = gameState->calculatorLines + i;
         assert(b->in);
-        Rect2f dim = renderText(&gameState->renderer, &gameState->mainFont, b->in, at, BODY_FONT_SCALE, make_float4(0, 0, 0, 1));
+
+        Rect2f dim = renderTextAsTokens(gameState, b->in, at);
         at.y += lineHeight;
         maxBufferSize.y += lineHeight;
 
@@ -55,7 +95,8 @@ void updateGame(GameState *gameState) {
     }
 
     if(gameState->stringBuffer.string) {
-        Rect2f dim = renderText(&gameState->renderer, &gameState->mainFont, gameState->stringBuffer.string, make_float2(-0.5f*plane.x - gameState->bufferOffset.x, -0.5f*plane.y + 1 -  gameState->bufferOffset.y), BODY_FONT_SCALE, make_float4(0, 0, 0, 1));
+        float2 at = make_float2(-0.5f*plane.x - gameState->bufferOffset.x, -0.5f*plane.y + 1 -  gameState->bufferOffset.y);
+        Rect2f dim = renderTextAsTokens(gameState, gameState->stringBuffer.string, at);
 
         if(get_scale_rect2f(dim).x > maxBufferSize.x) {
             maxBufferSize.x = get_scale_rect2f(dim).x;

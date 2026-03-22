@@ -6,6 +6,7 @@
 #include "./audio.h"
 #include "./backend_audio/sdl_sound.cpp"
 #include "./easy_ui.cpp"
+#include "./color_pallette.cpp"
 #include "./animation_action_enums.h"
 #include "./animation.cpp"
 #include "./uuid.cpp"

@@ -32,6 +32,8 @@ void initGameState(GameState *gameState) {
     gameState->customBoardSize = 3;
     gameState->operations = initResizeArray(VmOperation);
     gameState->codeToRun = "";
+    gameState->colorPallettes = init_color_palettes();
+    gameState->colorPallette = &gameState->colorPallettes.handmade;
 }
 
 GameState *allocateGameState() {

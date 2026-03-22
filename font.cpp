@@ -62,6 +62,8 @@ Rect2f renderText(Renderer *renderer, Font *font, char *nullTerminatedString, fl
                 stbtt_aligned_quad q  = {};
 
                 float beginY = y;
+                float lastX = x;
+                float lastY = y;
 
                 int index = *nullTerminatedString - font->startOffset;
                 stbtt_GetBakedQuad(font->glyphData, font->fontAtlasDim.x, font->fontAtlasDim.y, index, &x, &y, &q, 1);
@@ -77,13 +79,16 @@ Rect2f renderText(Renderer *renderer, Font *font, char *nullTerminatedString, fl
                 x1 += start.x;
                 y1 += start.y;
                 
-                if(render) {
-                    // pushRenderTexture(renderer, make_transformX(make_float3(x1, y1, 1), make_float3(1, 1, 1), make_float4(0, 0, 0, 1)), global_white_image, make_float4(1, 0, 0, 1));
-                }
-
                 float4 uvCoords = make_float4(q.s0, q.t0, q.s1, q.t1);
 
                 float3 glyphScale = make_float3(width, height, 1);
+
+                if(*nullTerminatedString == ' ') {
+                    //NOTE: Get the width from the advance
+                    glyphScale.x = scale*(x - lastX);
+                    glyphScale.y = scale*(y - lastY);
+
+                }
                 bounds = rect2f_union(bounds, make_rect2f_center_dim(make_float2(x1, y1), glyphScale.xy));
 
                 if(render) {

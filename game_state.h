@@ -105,6 +105,9 @@ struct GameState {
     bool isDraggingCamera;
     float2 cameraDragStart;
     Camera camera;
+
+    Color_Palettes colorPallettes;
+    Editor_Color_Palette *colorPallette;
 };
 
 
