@@ -68,6 +68,7 @@ struct GameState {
     float2 bufferOffset;
 
     int calculatorLineCount;
+    int maxCalculatorLineCount;
     CalculatorLine *calculatorLines; //NOTE: Lives on per vm run arena
     char *codeToRun;
 

@@ -1,7 +1,7 @@
 #include "./includes.h"
 
-Rect2f renderTextAsTokens(GameState *gameState, char *string, float2 at) {
-    Rect2f totalBounds = {};
+Rect2f renderTextAsTokens(GameState *gameState, char *string, float2 at, float scaleFactor = 1.0f) {
+    Rect2f totalBounds = make_rect2f_inverse_infinity();
     EasyTokenizer tokenizer = lexBeginParsing(string, EASY_LEX_OPTION_NONE);
     bool parsing = true;
     while(parsing) {
@@ -29,7 +29,7 @@ Rect2f renderTextAsTokens(GameState *gameState, char *string, float2 at) {
             }
 
             char *strToDraw = nullTerminateArena(token.at, token.size, &globalPerFrameArena);
-            Rect2f bounds = renderText(&gameState->renderer, &gameState->mainFont, strToDraw, at, BODY_FONT_SCALE, text_color);
+            Rect2f bounds = renderText(&gameState->renderer, &gameState->mainFont, strToDraw, at, scaleFactor*BODY_FONT_SCALE, text_color);
             at.x += get_scale_rect2f(bounds).x;
 
             totalBounds = rect2f_union(totalBounds, bounds);
@@ -58,10 +58,35 @@ void updateGame(GameState *gameState) {
         //TODO: Memory leak if we clear the whole cacluator, use another lifetime arena
         char *codeToRun = easy_createString_printf(&globalLongTermArena, "%s%s;",  gameState->codeToRun, gameState->stringBuffer.string);
 
-        //TODO: Run through all code to find number of new lines
-        int numberOfLines = 0; //ERROR: codeToRun;
+        int numberOfLines = 0; 
+        {
+            //NODE: Run through all code to find number of new lines
+            char *str = codeToRun;
+            while(*str) {
+                if(*str == ';') {
+                    numberOfLines++;
+                }
+                str++;
+            }
 
-        gameState->calculatorLines = pushArray(&globalPerVmRunLifetime, numberOfLines, CalculatorLine);
+            //NOTE: Allocate the array
+            gameState->maxCalculatorLineCount = numberOfLines;
+            gameState->calculatorLines = pushArray(&globalPerVmRunLifetime, numberOfLines, CalculatorLine);
+
+            //NOTE: Loop through again and set the strings
+            char *start = codeToRun;
+            str = codeToRun;
+            int lineAt = 0;
+            while(*str) {
+                if(*str == ';') {
+                    gameState->calculatorLines[lineAt++].in = nullTerminateArena(start, (int)(str - start), &globalPerVmRunLifetime);
+                    start = str + 1;
+                }
+                str++;
+            }
+        }
+        
+        
         gameState->stringBuffer.string = 0;
 
         bool error = compileToByteCode(codeToRun, &gameState->operations);
@@ -78,20 +103,31 @@ void updateGame(GameState *gameState) {
     }
 
     float lineHeight = 5;
+    float marginSpace = 5;
     float2 maxBufferSize = make_float2(0, 0);
-    float2 at = make_float2(-0.5f*plane.x - gameState->bufferOffset.x, -0.5f*plane.y + 5 - gameState->bufferOffset.y);
+    float startX = -0.5f*plane.x - gameState->bufferOffset.x;
+    float2 at = make_float2(startX, -0.5f*plane.y + 5 - gameState->bufferOffset.y);
     for(int i = gameState->calculatorLineCount - 1; i >= 0; --i) {
+        at.x = startX;
         CalculatorLine *b = gameState->calculatorLines + i;
         assert(b->in);
+        assert(b->out);
 
-        Rect2f dim = renderTextAsTokens(gameState, b->in, at);
+        Rect2f dim = renderTextAsTokens(gameState, b->out, at);
+
+        // pushRenderTexture(&gameState->renderer, make_transformX_float2(get_centre_rect2f(dim), get_scale_rect2f(dim)), gameState->imageFiles.whiteImage, MY_COLOR_PASTEL_LAVENDER);
+
+        at.x += get_scale_rect2f(dim).x + marginSpace;
+        Rect2f dim1 = renderTextAsTokens(gameState, b->in, at, 0.8f);
+
+        dim = rect2f_union(dim, dim1);
+        
         at.y += lineHeight;
         maxBufferSize.y += lineHeight;
 
         if(get_scale_rect2f(dim).x > maxBufferSize.x) {
             maxBufferSize.x = get_scale_rect2f(dim).x;
         }
-        
     }
 
     if(gameState->stringBuffer.string) {

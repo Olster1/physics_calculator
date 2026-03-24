@@ -364,6 +364,17 @@ static Rect2f make_rect2f_center_dim(float2 centre, float2 dim) {
 	return result; 
 }
 
+static Rect2f make_rect2f_inverse_infinity() {
+	Rect2f result = {};
+
+	result.minX = FLT_MAX;
+	result.minY = FLT_MAX;
+	result.maxX = -FLT_MAX;
+	result.maxY = -FLT_MAX;
+
+	return result; 
+}
+
 static Rect2f make_rect2f_min_dim(float minX, float minY, float dimX, float dimY) {
 	Rect2f result = {};
 
@@ -382,6 +393,7 @@ static float2 get_centre_rect2f(Rect2f r) {
 
 	return result;
 }
+
 
 static float2 get_scale_rect2f(Rect2f r) {
 	float2 result = {};

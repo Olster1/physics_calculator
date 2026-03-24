@@ -1,12 +1,12 @@
-AstNode *advanceAstNodeAndCheckType(CompilerState *state, EasyTokenType expectedType) {
-    state->currentNode = state->currentNode->next;
-    AstNode *node = state->currentNode;
+AstNode *advanceAstNodeAndCheckType(CompilerState *state, AstNode *node, EasyTokenType expectedType) {
+    state->currentNode = node->next;
+    node = state->currentNode;
     bool correct = false;
     if(node) {
         if(node->token.type == expectedType) {
             correct = true;
         } else {
-            state->error = easy_createString_printf(&globalPerFrameArena, "Expected a word, got a %s", LexTokenTypeStrings[node->token.type]);    
+            state->error = easy_createString_printf(&globalPerFrameArena, "Expected a %s, got a %s", LexTokenTypeStrings[expectedType], LexTokenTypeStrings[node->token.type]);    
         }
     } else {
         state->error = "Unexpected end of line. Expected a variable declaration.";
@@ -22,6 +22,8 @@ bool isEndingInstruction(AstNode *node) {
     return (node->operation.type == OP_CODE_CLEAR || node->token.type == TOKEN_CLOSE_PARENTHESIS);
 }
 
+
+
 AstNode *advanceAstNode(CompilerState *state) {
     state->currentNode = state->currentNode->next;
     AstNode *node = state->currentNode;
@@ -31,43 +33,94 @@ AstNode *advanceAstNode(CompilerState *state) {
     
     return node;
 }
+AstNode *parseExpression(CompilerState *state, AstNode *node);
+void parseVariableAssign(CompilerState *state, AstNode *node) {
+    if(node) {
+        //NOTE: Check if variable has been declared
+        char *name = nullTerminateArena(node->token.at, node->token.size, &globalPerFrameArena);
+        AstVariable *variable = getCompilerVariable(state, name);
+
+        if(!variable) {
+            printf("Variable not declared. Adding it now.\n");
+            pushCompilerVariable(state, name, AST_VARIABLE_NUMBER);
+        } 
+
+        node = advanceAstNodeAndCheckType(state, node, TOKEN_EQUALS);
+        if(node) {
+            //NOTE: Add variable as in use
+            node = advanceAstNode(state);
+            state->currentNode = parseExpression(state, node);
+            if(!state->error) {
+                VmOperation data = { .type = OP_CODE_VARIABLE_ASSIGN, .name = name};
+                pushArrayItem(state->operations, data, VmOperation);
+
+                //NOTE: Also push a variable for the print operation to print the outcome of the variable
+                data = { .type = OP_CODE_VARIABLE_REFERENCE, .name = name };
+                pushArrayItem(state->operations, data, VmOperation);
+            }
+        } else {
+            
+        }
+    }
+}
+
+void pushPrintOperation(CompilerState *state) {
+    VmOperation data = { .type = OP_CODE_NUMBER, .value_ = (double)(state->calculatorLineAt++) };
+    pushArrayItem(state->operations, data, VmOperation);
+
+    data = { .type = OP_CODE_PRINT };
+    pushArrayItem(state->operations, data, VmOperation);
+}
 
 AstNode *parseExpression(CompilerState *state, AstNode *node) {
     AstNode *postNodeOperation = {};
     
-    while(node) {
+    while(node && !state->error) {
         bool addedThisLoop = false;
         
         if(node->child) {
+            assert(node->type == AST_TYPE_PARENT);
+            
             if(node->token.type == TOKEN_OPEN_PARENTHESIS) {
                 if(!node->next || node->next->token.type != TOKEN_CLOSE_PARENTHESIS) {
                     state->error = "Expected a closed parenthesis.";
                 }
             }
             parseExpression(state, node->child);
+
+            if(node->operationType == AST_OPERATION_BEGIN_STATEMENT) {
+                pushPrintOperation(state);
+            }
+            
             // node = node->next;
         } else if(node->type == AST_TYPE_VALUE) {
             VmOperation data = {};
             if(node->operation.type == OP_CODE_NUMBER) {
                 data = node->operation;
+                pushArrayItem(state->operations, data, VmOperation);
+                if(node->next && node->next->type == AST_TYPE_VALUE) {
+                    state->error = "Expected an operator";
+                }
             } else {
-                char *name = nullTerminateArena(node->token.at, node->token.size, &globalPerFrameArena);
-                data = { .type = OP_CODE_VARIABLE_REFERENCE, .name = name };
-            }
-            pushArrayItem(state->operations, data, VmOperation);
+                if(node->next && node->next->token.type == TOKEN_EQUALS) {
 
-            if(node->next && node->next->type == AST_TYPE_VALUE) {
-                state->error = "Expected an operator";
+                    parseVariableAssign(state, node);
+                } else {
+                    char *name = nullTerminateArena(node->token.at, node->token.size, &globalPerFrameArena);
+                    data = { .type = OP_CODE_VARIABLE_REFERENCE, .name = name };
+                    pushArrayItem(state->operations, data, VmOperation);
+
+                    if(node->next && node->next->type == AST_TYPE_VALUE) {
+                        state->error = "Expected an operator";
+                    }
+                }
             }
+
         } else if(node->type == AST_TYPE_OPERATION) {
-            // if(node->operationType == AST_OPERATION_POST) {
                 //NOTE: Have to push the values on first. Have already pushed the first one becuase it came before
                 postNodeOperation = node;
                 DEBUG_lexPrintToken(&node->token);
                 addedThisLoop = true;
-            // } else {
-            //     pushArrayItem(state->operations, node->operation, VmOperation);
-            // }
 
             if(!isEndingInstruction(node)) {
                 if(!node->next) {
@@ -86,67 +139,15 @@ AstNode *parseExpression(CompilerState *state, AstNode *node) {
         if(node) {
             node = node->next;
         }
+
+        if(state->error) {
+            printf("%s\n", state->error);
+        }
     }
 
     return node;
 }
 
-void parseVariableAssign(CompilerState *state) {
-    AstNode *node = advanceAstNodeAndCheckType(state, TOKEN_WORD);
-    if(node) {
-        //NOTE: Check if variable has been declared
-        char *name = nullTerminateArena(node->token.at, node->token.size, &globalPerFrameArena);
-        AstVariable *variable = getCompilerVariable(state, name);
-        if(variable) {
-            node = advanceAstNodeAndCheckType(state, TOKEN_EQUALS);
-            if(node) {
-                //NOTE: Add variable as in use
-                node = advanceAstNode(state);
-                state->currentNode = parseExpression(state, node);
-                if(!state->error) {
-                    //NOTE: Now add the byte code for assigning variable
-                    VmOperation data = { .type = OP_CODE_STRING, .name = name };
-                    pushArrayItem(state->operations, data, VmOperation);
-
-                    data = { .type = OP_CODE_VARIABLE_ASSIGN };
-                    pushArrayItem(state->operations, data, VmOperation);
-                }
-            }
-        } else {
-            state->error = easy_createString_printf(&globalPerFrameArena, "Variable name: %s not declared.", name);    
-        }
-    }
-}
-
-void parseVariableDeclare(CompilerState *state) {
-    if(state->currentNode->next) {
-        AstNode *node = advanceAstNodeAndCheckType(state, TOKEN_WORD);
-        if(node) {
-            //NOTE: Check if variable is already is in use
-            char *name = nullTerminateArena(node->token.at, node->token.size, &globalPerFrameArena);
-            AstVariable *variable = getCompilerVariable(state, name);
-            if(!variable) {
-                node = advanceAstNodeAndCheckType(state, TOKEN_EQUALS);
-                if(node) {
-                   //NOTE: Add variable as in use
-                   pushCompilerVariable(state, name, AST_VARIABLE_NUMBER);
-                   node = advanceAstNode(state);
-                   state->currentNode = parseExpression(state, node);
-                   if(!state->error) {
-                        //NOTE: Now add the byte code for assigning variable
-                        VmOperation data = { .type = OP_CODE_STRING, .name = name };
-                        pushArrayItem(state->operations, data, VmOperation);
-
-                        data = { .type = OP_CODE_VARIABLE_DECLARATION };
-                        pushArrayItem(state->operations, data, VmOperation);
-                   }
-                }
-            } else {
-                state->error = easy_createString_printf(&globalPerFrameArena, "Variable name: %s already in use.", name);    
-            }
-        }
-    }
-}
 
 bool compileToByteCode(char *codeToCompile, VmOperation **operations) {
      EasyTokenizer tokenizer = lexBeginParsing(codeToCompile, EASY_LEX_OPTION_EAT_WHITE_SPACE);
@@ -157,6 +158,7 @@ bool compileToByteCode(char *codeToCompile, VmOperation **operations) {
     //NOTE: First node so just set it
     AstNode *startNode = pushStruct(&globalPerFrameArena, AstNode);
     startNode->type = AST_TYPE_PARENT;
+    startNode->operationType = AST_OPERATION_BEGIN_STATEMENT;
     tree->current = tree->start = startNode;
 
     bool parsing = true;
@@ -176,6 +178,8 @@ bool compileToByteCode(char *codeToCompile, VmOperation **operations) {
             createAndAddNode(tree, getPrecedenceForToken(t), t, { .type = OP_CODE_NONE }, getAstTypeForToken(t), getOperationType(t));
         } else if(t.type == TOKEN_INTEGER) {
             createAndAddNode(tree, getPrecedenceForToken(t), t, { .type = OP_CODE_NUMBER, .value_= (double)t.intVal }, getAstTypeForToken(t), getOperationType(t));
+        } else if(t.type == TOKEN_EQUALS) { 
+            createAndAddNode(tree, getPrecedenceForToken(t), t, { .type = OP_CODE_NONE }, getAstTypeForToken(t), getOperationType(t));
         } else if(t.type == TOKEN_FLOAT) { 
             createAndAddNode(tree, getPrecedenceForToken(t), t, { .type = OP_CODE_NUMBER, .value_= (double)t.floatVal }, getAstTypeForToken(t), getOperationType(t));
         } else if(t.type == TOKEN_PLUS) { 
@@ -206,7 +210,6 @@ bool compileToByteCode(char *codeToCompile, VmOperation **operations) {
                 } else {
                     createAndAddNode(tree, getPrecedenceForToken(t), t, { .type = OP_CODE_CLEAR }, getAstTypeForToken(t), getOperationType(t));
                 }
-                
             } else if(easyString_stringsMatch_null_and_count("sin", t.at, t.size)) {
                 createAndAddNode(tree, getPrecedenceForToken(t), t, { .type = OP_CODE_SIN }, getAstTypeForToken(t), getOperationType(t));
             } else if(easyString_stringsMatch_null_and_count("cos", t.at, t.size)) {
@@ -219,10 +222,8 @@ bool compileToByteCode(char *codeToCompile, VmOperation **operations) {
                 createAndAddNode(tree, getPrecedenceForToken(t), t, { .type = OP_CODE_ARCCOS }, getAstTypeForToken(t), getOperationType(t));
             } else if(easyString_stringsMatch_null_and_count("atan", t.at, t.size)) {
                 createAndAddNode(tree, getPrecedenceForToken(t), t, { .type = OP_CODE_ARCTAN }, getAstTypeForToken(t), getOperationType(t));
-            } else if(easyString_stringsMatch_null_and_count("let", t.at, t.size)) {
-                createAndAddNode(tree, getPrecedenceForToken(t), t, { .type = OP_CODE_DECLARE }, getAstTypeForToken(t), getOperationType(t));
             } else {
-                createAndAddNode(tree, getPrecedenceForToken(t), t, { .type = OP_CODE_VARIABLE_DECLARATION}, getAstTypeForToken(t, false), getOperationType(t));
+                createAndAddNode(tree, getPrecedenceForToken(t), t, { .type = OP_CODE_VARIABLE_REFERENCE}, getAstTypeForToken(t, false), getOperationType(t));
             }
         }
         lastToken = t;
@@ -241,22 +242,7 @@ bool compileToByteCode(char *codeToCompile, VmOperation **operations) {
         //NOTE: Now have ast, walk through this to output the vm instructions
         while(state->currentNode && running) {
             VmOperation op = state->currentNode->operation;
-            if(op.type == OP_CODE_DECLARE) {
-                //NOTE: Is 'let' symbol
-                parseVariableDeclare(state);
-            } else if(op.type == OP_CODE_VARIABLE_DECLARATION) {
-                parseVariableAssign(state);
-            } else if(op.type == OP_CODE_CLEAR) {
-                state->currentNode = parseExpression(state, state->currentNode);
-            } else {
-                state->currentNode = parseExpression(state, state->currentNode);
-                VmOperation op = { .type = OP_CODE_PRINT };
-                pushArrayItem(state->operations, op, VmOperation);
-            }
-            if(state->error) {
-                printf("%s\n", state->error);
-                running = false;
-            }
+            state->currentNode = parseExpression(state, state->currentNode);            
         }
     }
 

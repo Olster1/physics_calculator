@@ -53,7 +53,7 @@ Rect2f renderText(Renderer *renderer, Font *font, char *nullTerminatedString, fl
     float x = 0;
     float y = 0;
 
-    Rect2f bounds = make_rect2f(FLT_MAX, FLT_MAX, -FLT_MAX, -FLT_MAX);
+    Rect2f bounds = make_rect2f_inverse_infinity();
 
     while (*nullTerminatedString) {
         if(*nullTerminatedString != '\n') {

@@ -20,6 +20,7 @@ enum AstType {
 
 enum AstOperationType {
     AST_OPERATION_NONE,
+    AST_OPERATION_BEGIN_STATEMENT,
     AST_OPERATION_PRE,
     AST_OPERATION_POST,
 };
@@ -34,6 +35,9 @@ AstOperationType getOperationType(EasyToken t) {
         case TOKEN_MINUS: {
             result = AST_OPERATION_POST;
         } break;
+        case TOKEN_SEMI_COLON: {
+            result = AST_OPERATION_BEGIN_STATEMENT;
+        }
         default: {
 
         }
@@ -144,11 +148,14 @@ AstNode *createAndAddNode(AstTree *tree, AstPrecendence precedence, EasyToken to
         } else if(tree->current->child) {
             AstNode *parentNode = pushStruct(&globalPerFrameArena, AstNode);
             parentNode->type = AST_TYPE_PARENT;
-            parentNode->precedence = tree->current->precedence;
-            parentNode->parent = tree->current->parent;
+            parentNode->operationType = AST_OPERATION_BEGIN_STATEMENT;
+            // parentNode->precedence = tree->current->precedence;
+            parentNode->parent = tree->current->parent; 
             tree->current->next = parentNode;
             tree->current = parentNode;
             node->parent = parentNode;
+
+            precedence = AST_HIGHEST_PRECEDENCE;
 
             tree->current->child = node;
         } else {
@@ -207,6 +214,8 @@ struct CompilerState {
     char *error;
     AstNode *currentNode;
     AstVariable *variables[MAX_VARIABLE_MAP_SIZE]; //NOTE: Nodes pushed onto per frame arena 
+
+    int calculatorLineAt;
 
     VmOperation **operations; //NOTE: Resize array
 };

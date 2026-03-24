@@ -22,6 +22,24 @@ struct VmMachineState {
     StackVariable *variables[MAX_VARIABLE_MAP_SIZE]; //NOTE: Nodes pushed onto per frame arena 
 };
 
+StackVariable *getStackVariable(VmMachineState *state, char *name) {
+    int index = getIndexForVariableMap(name);
+
+    StackVariable *ptr = state->variables[index];
+    
+    bool found = false;
+    while(ptr && !found) {
+        if(easyString_stringsMatch_nullTerminated(name, ptr->name)) {
+            
+            found = true;
+            break;
+        } else {
+            ptr = ptr->next;
+        }
+    }
+    return ptr;
+}
+
 VmOperation vmMachine_push(VmMachineState *state, VmOperation operation) {
     VmOperation result = {};
     if((state->stackSizeBytes + sizeof(VmOperation)) <= state->stackSizeMaxBytes) {
@@ -36,43 +54,32 @@ VmOperation vmMachine_push(VmMachineState *state, VmOperation operation) {
 }
 
 void pushStackVariable(VmMachineState *state, char *name, double value) {
-    StackVariable *var = pushStruct(&globalPerFrameArena, StackVariable);
+    StackVariable *existingVar = getStackVariable(state, name);
 
-    var->name = name;
-    var->bytesOffset = (u64)(state->at - state->stackBase);
+    if(existingVar) {
+        VmOperation *dec = (VmOperation *)(state->stackBase + existingVar->bytesOffset);
+        assert(dec->type == OP_CODE_VARIABLE_ASSIGN);
+        dec->value_ = value;
+    } else {
+         StackVariable *var = pushStruct(&globalPerFrameArena, StackVariable);
 
-    VmOperation newOp = {};
-    newOp.type = OP_CODE_VARIABLE_DECLARATION;
-    newOp.value_ = value;
-    
-    vmMachine_push(state, newOp);
+        var->name = name;
+        var->bytesOffset = (u64)(state->at - state->stackBase);
 
-    int index = getIndexForVariableMap(name);
+        VmOperation newOp = {};
+        newOp.type = OP_CODE_VARIABLE_ASSIGN;
+        newOp.value_ = value;
+        
+        vmMachine_push(state, newOp);
 
-    StackVariable **ptr = &state->variables[index];
-    while(*ptr) {
-        ptr = &(*ptr)->next;
-    }
-    *ptr = var;
-}
+        int index = getIndexForVariableMap(name);
 
-StackVariable *getStackVariable(VmMachineState *state, char *name) {
-    int index = getIndexForVariableMap(name);
-
-    StackVariable *ptr = state->variables[index];
-    assert(ptr);
-    bool found = false;
-    while(ptr && !found) {
-        if(easyString_stringsMatch_nullTerminated(name, ptr->name)) {
-            
-            found = true;
-            break;
-        } else {
-            ptr = ptr->next;
+        StackVariable **ptr = &state->variables[index];
+        while(*ptr) {
+            ptr = &(*ptr)->next;
         }
+        *ptr = var;
     }
-    assert(found);
-    return ptr;
 }
 
 double vmOp_getValue(VmMachineState *state, VmOperation op) {
@@ -84,7 +91,7 @@ double vmOp_getValue(VmMachineState *state, VmOperation op) {
         StackVariable *var = getStackVariable(state, op.name);
         assert(var);
         VmOperation *dec = (VmOperation *)(state->stackBase + var->bytesOffset);
-        assert(dec->type == OP_CODE_VARIABLE_DECLARATION);
+        assert(dec->type == OP_CODE_VARIABLE_ASSIGN);
         result = dec->value_;
     } else {
         state->panic = "Expected a number of variable";
@@ -162,12 +169,19 @@ bool runCode(GameState *gameState, VmOperation *operations, int operationCount) 
                 break;
             }
             case OP_CODE_PRINT: {
+                double calculatorLineNumber = popAndGetValueNumber(&state);
+
                 double value = popAndGetValueNumber(&state);
 
                 StringBuffer b = {};
                 b.string = easy_createString_printf(&globalPerVmRunLifetime, "%f", value);
 
                 printf("%s\n", b.string);
+
+                assert(gameState->calculatorLineCount < gameState->maxCalculatorLineCount);
+                assert(gameState->calculatorLineCount == calculatorLineNumber);
+                CalculatorLine *line = &gameState->calculatorLines[gameState->calculatorLineCount++];
+                line->out = b.string;
 
                 // pushArrayItem(&gameState->declarationsInput, b, StringBuffer);
                 break;
@@ -340,6 +354,15 @@ bool runCode(GameState *gameState, VmOperation *operations, int operationCount) 
      
             case OP_CODE_NUMBER: {
                 vmMachine_push(&state, *op);
+                break;
+            }
+            case OP_CODE_VARIABLE_REFERENCE: {
+                vmMachine_push(&state, *op);
+                break;
+            }
+            case OP_CODE_VARIABLE_ASSIGN: {
+                double value = popAndGetValueNumber(&state);
+                pushStackVariable(&state, op->name, value);
                 break;
             }
 

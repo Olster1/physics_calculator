@@ -32,4 +32,5 @@ typedef u32 bool;
 #include "./transform.cpp"
 #include "./render.h"
 #include "./defines.h"
+#include "./color_defines.h"
 #include "./resize_array.cpp"
