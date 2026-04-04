@@ -33,12 +33,14 @@ void initGameState(GameState *gameState) {
     gameState->operations = initResizeArray(VmOperation);
     gameState->codeToRun = "";
     gameState->colorPallettes = init_color_palettes();
-    gameState->colorPallette = &gameState->colorPallettes.handmade;
+    gameState->colorPallette = &gameState->colorPallettes.witness;
+    stringBuffer_init(&gameState->stringBuffer);
+    // runLanguageUnitTests(gameState);
 }
 
 GameState *allocateGameState() {
     GameState * result = pushStruct(&globalLongTermArena, GameState);
     initGameState(result);
     return result;
-    
+
 }

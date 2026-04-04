@@ -1,6 +1,7 @@
 struct Editor_Color_Palette
 {
 	float4 background;
+	float4 backgroundVariation;
 	float4 standard;
 	float4 variable;
 	float4 bracket;
@@ -44,6 +45,7 @@ static Color_Palettes init_color_palettes() {
 	Color_Palettes result = {};
 
 	result.handmade.background = color_hexARGBTo01(0xFF161616);
+	result.handmade.backgroundVariation = color_hexARGBTo01(0xFF3c3d3d);
 	result.handmade.standard =  color_hexARGBTo01(0xFFA08563);
 	result.handmade.variable = color_hexARGBTo01(0xFF6B8E23);
 	result.handmade.bracket = color_hexARGBTo01(0xFFDAB98F);
@@ -55,6 +57,7 @@ static Color_Palettes init_color_palettes() {
 
 
 	result.witness.background = color_rgb255_to_01(6, 38, 38);
+	result.witness.backgroundVariation = color_rgb255_to_01(6, 55, 55);
 	result.witness.standard =  color_rgb255_to_01(194, 205, 187);
 	result.witness.variable = color_rgb255_to_01(139, 194, 186);
 	result.witness.bracket = color_rgb255_to_01(194, 205, 187);

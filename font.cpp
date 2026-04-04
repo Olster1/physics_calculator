@@ -49,11 +49,12 @@ Font initFontAtlas(unsigned char *ttfBuffer) {
 }
 
 //NOTE: Start is the baseline and starting horizontal point
-Rect2f renderText(Renderer *renderer, Font *font, char *nullTerminatedString, float2 start, float scale, float4 color = make_float4(1, 1, 1, 1), bool render = true) {
+Rect2f renderText(Renderer *renderer, Font *font, char *nullTerminatedString, float2 start, float scale, float4 color = make_float4(1, 1, 1, 1), bool render = true, int cursorIndex = -1, Rect2f *cursorSize = 0) {
     float x = 0;
     float y = 0;
 
     Rect2f bounds = make_rect2f_inverse_infinity();
+    int charIndex = 0;
 
     while (*nullTerminatedString) {
         if(*nullTerminatedString != '\n') {
@@ -89,7 +90,13 @@ Rect2f renderText(Renderer *renderer, Font *font, char *nullTerminatedString, fl
                     glyphScale.y = scale*(y - lastY);
 
                 }
-                bounds = rect2f_union(bounds, make_rect2f_center_dim(make_float2(x1, y1), glyphScale.xy));
+                Rect2f b = make_rect2f_center_dim(make_float2(x1, y1), glyphScale.xy);
+                
+                if(cursorSize && charIndex == (cursorIndex - 1)) {
+                    *cursorSize = b;
+                }
+                
+                bounds = rect2f_union(bounds, b);
 
                 if(render) {
                     pushRenderGlyph(renderer, make_float3(x1, y1, 1), glyphScale, uvCoords, color, font->texture);
@@ -100,6 +107,7 @@ Rect2f renderText(Renderer *renderer, Font *font, char *nullTerminatedString, fl
             x = 0;
             y -= font->fontHeight;
         }
+        charIndex++;
         nullTerminatedString++;
     }
 

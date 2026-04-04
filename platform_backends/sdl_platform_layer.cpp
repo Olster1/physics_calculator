@@ -28,10 +28,20 @@ enum MouseKeyState {
 
 void platform_setWindowSize(int w, int h) {
   SDL_SetWindowSize(window, w, h);
-} 
+}
 void platform_setWindowPos(int w, int h) {
   SDL_SetWindowPosition(window, w, h);
-} 
+}
+
+char *platform_getClipBoardText() {
+  char *result = SDL_GetClipboardText();
+
+  return result;
+}
+
+void platform_freeClipBoardText(char *txt) {
+  SDL_free(txt);
+}
 
 #include "../backend_renderer/sdl_backend_renderer.cpp"
 #include "../main.cpp"
@@ -55,17 +65,17 @@ void updateMouseButton(u32 mouseState, GameState *gameState, MouseButtonType ind
 }
 
 void getMouseData(GameState *gameState) {
-  int w; 
+  int w;
   int h;
   SDL_GetWindowSize(window, &w, &h);
 
   gameState->aspectRatioWindow_y_over_x = (float)h / (float)w;
 
-  float x; 
+  float x;
   float y;
   Uint32 mouseState = SDL_GetMouseState(&x, &y);
   gameState->mouseP_screenSpace.x = (float)x;
-  gameState->mouseP_screenSpace.y = (float)(-y); //NOTE: Bottom corner is origin 
+  gameState->mouseP_screenSpace.y = (float)(-y); //NOTE: Bottom corner is origin
 
   gameState->mouseP_01.x = gameState->mouseP_screenSpace.x / w;
   gameState->mouseP_01.y = (gameState->mouseP_screenSpace.y / h) + 1.0f;
@@ -79,7 +89,7 @@ static Uint32 lastTicks = 0;
 
 struct UpdateLoopData {
   GameState *gameState;
-  int w; 
+  int w;
   int h;
 };
 
@@ -107,7 +117,7 @@ int main(int argc, char** argv) {
 
   int flags = SDL_WINDOW_RESIZABLE;
 
-  int w = 1920; 
+  int w = 1920;
   int h = 1080;
 
   window = SDL_CreateWindow("Calculator",
@@ -120,7 +130,7 @@ int main(int argc, char** argv) {
   backend_render_init();
 
   backend_render_getOutputSize(&w, &h);
-  
+
   platform_setWindowSize(w, h);
 
   global_default_window_size_x = w;
@@ -147,18 +157,29 @@ int main(int argc, char** argv) {
       if (e.type == SDL_EVENT_MOUSE_WHEEL) {
         gameState->scrollWheelDelta.y = e.wheel.y;
         gameState->scrollWheelDelta.x = e.wheel.x;
-      } 
+      }
       else if (e.type == SDL_EVENT_KEY_DOWN) {
-        // SDL_K_RETURN is the 'Enter' key on the main keyboard
-        // SDL_K_KP_ENTER is the 'Enter' key on the number pad
         if (e.key.key == SDLK_RETURN || e.key.key == SDLK_KP_ENTER) {
             gameState->enterPressed = true;
         }
-         if (e.key.key == SDLK_BACKSPACE) {
-          stringBuffer_popCharacter(&gameState->stringBuffer);
+        if(e.key.key == SDLK_V && (e.key.mod & SDL_KMOD_GUI)) {
+          char *text = platform_getClipBoardText();
+          stringBuffer_insertString(&gameState->stringBuffer, text);
+          if(text) {
+              platform_freeClipBoardText(text);
+          }
+        }
+        if (e.key.key == SDLK_LEFT) {
+          stringBuffer_cursorLeft(&gameState->stringBuffer, 1);
+        }
+        if (e.key.key == SDLK_RIGHT) {
+          stringBuffer_cursorRight(&gameState->stringBuffer, 1);
+        }
+        if (e.key.key == SDLK_BACKSPACE) {
+          stringBuffer_removeCharacter(&gameState->stringBuffer);
         }
       }
-     
+
       if (e.type == SDL_EVENT_WINDOW_RESIZED) {
         w = e.window.data1;
         h = e.window.data2;
@@ -176,9 +197,9 @@ int main(int argc, char** argv) {
 
         saveSettingsFile(&gameState->settingsToSave, gameState->settingsToSave.playingFileId);
       } else if (e.type == SDL_EVENT_TEXT_INPUT) {
-        stringBuffer_concatString(&gameState->stringBuffer, (char *)e.text.text);
+        stringBuffer_insertString(&gameState->stringBuffer, (char *)e.text.text);
       }
-      
+
     }
     refreshPerFrameArena();
 

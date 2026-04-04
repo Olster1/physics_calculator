@@ -8,13 +8,14 @@ enum AstPrecendence {
     AST_MULTIPLY_DIVIDE,
     AST_EXPONENT,
     AST_HIGHEST_PRECEDENCE,
-    
+
 };
 
 enum AstType {
     AST_TYPE_DEFAULT,
     AST_TYPE_VALUE,
     AST_TYPE_OPERATION,
+    AST_TYPE_FUNC,
     AST_TYPE_PARENT,
 };
 
@@ -50,7 +51,7 @@ AstType getAstTypeForToken(EasyToken t, bool isKeyword = true) {
     switch(t.type) {
         case TOKEN_WORD: {
             if(isKeyword) {
-                result = AST_TYPE_OPERATION;
+                result = AST_TYPE_FUNC;
             } else {
                 result = AST_TYPE_VALUE;
             }
@@ -96,106 +97,9 @@ struct AstNode {
 struct AstTree {
     AstNode *start;
     AstNode *current;
+    EasyToken lastToken;
 };
 
-void astPopToRoot(AstTree *tree) {
-    if(tree->current) {
-        //NOTE: Pop all the way back to the top of the tree.
-        while(tree->current->parent) {
-            assert(tree->current->parent);
-            tree->current = tree->current->parent;
-        }
-    }
-}
-
-AstNode *createAndAddNode(AstTree *tree, AstPrecendence precedence, EasyToken token, VmOperation operation, AstType astType, AstOperationType operationType) {
-    AstNode *node = pushStruct(&globalPerFrameArena, AstNode);
-    node->type = astType;
-    
-    if(tree->current) {
-        
-        //NOTE: Popup back to last matching parent
-        if(precedence == AST_POP) {
-            //NOTE: Just pop once
-            assert(tree->current->parent);
-            tree->current = tree->current->parent;
-        } else if(precedence == AST_POP_ALL) {
-            //NOTE: Pop all the way back to the top of the tree.
-            while(tree->current->parent) {
-                assert(tree->current->parent);
-                tree->current = tree->current->parent;
-            }
-        } else if(precedence != AST_SAME && precedence != AST_PUSH && tree->current->precedence != AST_HIGHEST_PRECEDENCE) {
-            while(tree->current->parent && tree->current->precedence > precedence) {
-                assert(tree->current->parent);
-                tree->current = tree->current->parent;
-            }
-        }
-
-        if(tree->current->precedence >= precedence || precedence == AST_POP) {
-            //NOTE: Same precedence so keep on same level
-            assert(!tree->current->next);
-            tree->current->next = node;
-            node->parent = tree->current->parent;
-
-            if(precedence == AST_SAME || precedence == AST_POP) {
-                precedence = tree->current->precedence;
-            }
-            if(tree->current->precedence == AST_HIGHEST_PRECEDENCE) {
-                //NOTE: Default back to same value
-                tree->current->precedence = AST_SAME;
-            }
-        } else if(tree->current->child) {
-            AstNode *parentNode = pushStruct(&globalPerFrameArena, AstNode);
-            parentNode->type = AST_TYPE_PARENT;
-            parentNode->operationType = AST_OPERATION_BEGIN_STATEMENT;
-            // parentNode->precedence = tree->current->precedence;
-            parentNode->parent = tree->current->parent; 
-            tree->current->next = parentNode;
-            tree->current = parentNode;
-            node->parent = parentNode;
-
-            precedence = AST_HIGHEST_PRECEDENCE;
-
-            tree->current->child = node;
-        } else {
-            assert(!tree->current->child);
-            //NOTE: Make as child
-            //NOTE: Make a parent node to set as the top, then bring down the current one with it
-            if(tree->current->type == AST_TYPE_VALUE) {
-                AstNode *childNode = pushStruct(&globalPerFrameArena, AstNode);
-                *childNode = *tree->current;
-                childNode->parent = tree->current;
-                tree->current->type = AST_TYPE_PARENT;
-                tree->current->child = childNode;
-                node->parent = tree->current;
-                childNode->next = node;
-            } else {
-                //NOTE: Just put the new node as a child
-                node->parent = tree->current;
-                tree->current->child = node;
-
-                //NOTE: Put precedence as the highest level
-                if(node->type != AST_TYPE_PARENT) {
-                    // assert(node->type == AST_TYPE_VALUE);
-                    precedence = AST_HIGHEST_PRECEDENCE;
-                }
-                
-            }
-        }
-        tree->current = node;
-    } else {
-        assert(false);
-    }
-    
-    node->precedence = precedence;
-    node->token = token;
-    node->operation = operation;
-    node->operationType = operationType;
-    
-
-    return node;
-}
 
 enum AstVariableType {
     AST_VARIABLE_NUMBER,
@@ -210,46 +114,25 @@ struct AstVariable {
     AstVariable *next;
 };
 
-struct CompilerState {
-    char *error;
-    AstNode *currentNode;
-    AstVariable *variables[MAX_VARIABLE_MAP_SIZE]; //NOTE: Nodes pushed onto per frame arena 
 
-    int calculatorLineAt;
-
-    VmOperation **operations; //NOTE: Resize array
-};
-    
-void pushCompilerVariable(CompilerState *state, char *name, AstVariableType type) {
-    AstVariable *var = pushStruct(&globalPerFrameArena, AstVariable);
-
-    var->name = name;
-    var->type = type;
-
-    int index = getIndexForVariableMap(name);
-
-    AstVariable **ptr = &state->variables[index];
-    while(*ptr) {
-        ptr = &(*ptr)->next;
-    }
-    *ptr = var;
-}
-
-AstVariable *getCompilerVariable(CompilerState *state, char *name) {
-    int index = getIndexForVariableMap(name);
-    AstVariable *ptr = state->variables[index];
-
-    bool found = false;
-    while(ptr && !found) {
-        if(easyString_stringsMatch_nullTerminated(name, ptr->name)) {
-            
-            found = true;
-            break;
-        } else {
-            ptr = ptr->next;
+void astPopToRoot(AstTree *tree) {
+    if(tree->current) {
+        //NOTE: Pop all the way back to the top of the tree.
+        while(tree->current->parent) {
+            assert(tree->current->parent);
+            tree->current = tree->current->parent;
         }
     }
-    return ptr;
+}
+
+AstNode *createAndAddNodeEmptyParent(AstTree *tree) {
+    AstNode *parentNode = pushStruct(&globalPerFrameArena, AstNode);
+    parentNode->type = AST_TYPE_PARENT;
+
+    parentNode->parent = tree->current->parent;
+    tree->current->next = parentNode;
+    tree->current = parentNode;
+    return parentNode;
 }
 
 AstPrecendence getPrecedenceForToken(EasyToken t) {
@@ -288,51 +171,44 @@ AstPrecendence getPrecedenceForToken(EasyToken t) {
     return precedence;
 }
 
+struct CompilerState {
+    char *error;
+    AstNode *currentNode;
+    AstVariable *variables[MAX_VARIABLE_MAP_SIZE]; //NOTE: Nodes pushed onto per frame arena
 
-void printAstNodeAdvanced(AstNode *node, char *prefix, bool isLast) {
-    if (!node) return;
+    int calculatorLineAt;
 
-    // 1. Print the current indentation and the branch character
-    printf("%s", prefix);
-    printf(isLast ? "└── " : "├── ");
+    VmOperation **operations; //NOTE: Resize array
+};
 
-    // 2. Print the token
-    if(node->type == AST_TYPE_PARENT) {
-        printf("PARENT NODE: ");
-        DEBUG_lexPrintToken(&node->token);
-    } else {
-        DEBUG_lexPrintToken(&node->token);
+void pushCompilerVariable(CompilerState *state, char *name, AstVariableType type) {
+    AstVariable *var = pushStruct(&globalPerFrameArena, AstVariable);
+
+    var->name = name;
+    var->type = type;
+
+    int index = getIndexForVariableMap(name);
+
+    AstVariable **ptr = &state->variables[index];
+    while(*ptr) {
+        ptr = &(*ptr)->next;
     }
-    
-    printf("\n");
-
-    // 3. Prepare the prefix for the children
-    // We append either a vertical bar or a space depending on if this node has more siblings
-    char newPrefix[256]; 
-    snprintf(newPrefix, sizeof(newPrefix), "%s%s", prefix, isLast ? "    " : "│   ");
-
-    // 4. Recurse to the first child
-    if (node->child) {
-        AstNode *c = node->child;
-        while (c != NULL) {
-            // A child is the "last" if its next pointer is null
-            printAstNodeAdvanced(c, newPrefix, c->next == NULL);
-            c = c->next;
-        }
-    }
+    *ptr = var;
 }
 
-void printAstTree(AstTree *tree) {
-    if (!tree || !tree->start) {
-        printf("(Empty Tree)\n");
-        return;
-    }
+AstVariable *getCompilerVariable(CompilerState *state, char *name) {
+    int index = getIndexForVariableMap(name);
+    AstVariable *ptr = state->variables[index];
 
-    AstNode *node = tree->start;
-    while(node) {
-        // Start recursion with an empty prefix and true (since root is the only node at its level)
-        printAstNodeAdvanced(node, "", true);
-        node = node->next;
+    bool found = false;
+    while(ptr && !found) {
+        if(easyString_stringsMatch_nullTerminated(name, ptr->name)) {
+
+            found = true;
+            break;
+        } else {
+            ptr = ptr->next;
+        }
     }
-    
+    return ptr;
 }
