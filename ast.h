@@ -1,3 +1,4 @@
+
 enum AstPrecendence {
     AST_NONE,
     AST_PUSH,
@@ -6,9 +7,9 @@ enum AstPrecendence {
     AST_SAME,
     AST_PLUS_MINUS,
     AST_MULTIPLY_DIVIDE,
-    AST_EXPONENT,
+    AST_HIGHEST_PRECEDENCE_SAME,
     AST_HIGHEST_PRECEDENCE,
-
+    AST_EXPONENT,
 };
 
 enum AstType {
@@ -159,7 +160,7 @@ AstPrecendence getPrecedenceForToken(EasyToken t) {
             precedence = AST_EXPONENT;
         } break;
         case TOKEN_OPEN_PARENTHESIS: {
-            precedence = AST_PUSH;
+            precedence = AST_HIGHEST_PRECEDENCE;
         } break;
         case TOKEN_CLOSE_PARENTHESIS: {
             precedence = AST_POP;

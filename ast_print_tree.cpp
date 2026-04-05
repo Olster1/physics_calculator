@@ -1,4 +1,4 @@
-#define DEBUG_PRINT_AST_TREE 0
+#define DEBUG_PRINT_AST_TREE 1
 
 void printAstNodeAdvanced(AstNode *node, char *prefix, bool isLast) {
     if (!node) return;

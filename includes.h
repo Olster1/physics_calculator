@@ -22,6 +22,7 @@
 #include "./vm_runner.h"
 #include "./ast.h"
 #include "./ast_print_tree.cpp"
+#include "./ast_backend.cpp"
 #include "./ast.cpp"
 #include "./string_buffer.cpp"
 #include "./game_state.h"

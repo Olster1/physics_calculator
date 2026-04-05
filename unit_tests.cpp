@@ -103,7 +103,7 @@ void runLanguageUnitTests(GameState *gameState) {
     runUnitTest(&results, "4*2^-1;", 2);
 
     // Mixed precedence chains
-    // runUnitTest(&results, "(-2)^2;", 4);   // this breaks the ast tree
+    runUnitTest(&results, "(-2)^2;", 4);   // this breaks the ast tree
     runUnitTest(&results, "-2^2;", -4);    // unary minus applied after exponent
     runUnitTest(&results, "10-2^2*2;", 2);
     runUnitTest(&results, "-2^2+3*2;", 2);
@@ -370,6 +370,7 @@ void runLanguageUnitTests(GameState *gameState) {
     runUnitTest(&results, "sqr(cos(0)+1);", 4);          // sqr(2)
     runUnitTest(&results, "sqrt(sqr(2+1));", 3);         // sqrt(9)
     runUnitTest(&results, "sqr(sqrt(2^4+2^4));", 32);    // sqrt(32) then sqr
+    // sin( (5 + 2) * -sqrt(3^2))
 
 
     printf("Passed %d out of %d tests.\n", results.passedCount, results.totalCount);
