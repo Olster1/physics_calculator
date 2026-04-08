@@ -102,13 +102,13 @@ double vmOp_getValue(VmMachineState *state, VmOperation op) {
 
 bool vm_isError(VmOperation op) {
     return(op.type == OP_CODE_ERROR);
-
 }
 
 VmMachineState initVmMachineState() {
     VmMachineState state = {};
     state.stackSizeMaxBytes = Megabytes(5);
     state.at = state.stackBase = (u8 *)pushSize(&globalPerFrameArena, state.stackSizeMaxBytes);
+    state.useRadians = true;
     return state;
 }
 
@@ -142,11 +142,11 @@ double vm_getAngle(VmMachineState *state, double value) {
     return (state->useRadians) ? value : degreesToRadians(value);
 }
 
-bool runCode(VmMachineState *state, GameState *gameState, VmOperation *operations, int operationCount, bool isUnitTest = false) {
+bool runCode(VmMachineState *state, GameState *gameState, List<VmOperation> operations, bool isUnitTest = false) {
     bool clear = false;
 
-    for(int i = 0; i < operationCount; ++i) {
-        VmOperation *op = operations + i;
+    for(int i = 0; i < operations.count; ++i) {
+        VmOperation *op = &operations[i];
 
         // printf("%s\n", OpCodeTypeStrings[op->type]);
 

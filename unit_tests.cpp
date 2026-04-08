@@ -1,4 +1,3 @@
-
 struct UnitTestResults {
     GameState *gameState;
     int passedCount;
@@ -9,16 +8,17 @@ struct UnitTestResults {
 void runUnitTest(UnitTestResults *results,  char *code, double answer) {
     GameState *gameState = results->gameState;
     refreshVmMemoryArena();
-    clearResizeArray(gameState->operations);
+    gameState->operations.clear();
 
     bool error = compileToByteCode(code, &gameState->operations);
     VmMachineState machineState  = initVmMachineState();
-    runCode(&machineState, gameState, gameState->operations, getArrayLength(gameState->operations), true);
+    runCode(&machineState, gameState, gameState->operations, true);
 
     double value = popAndGetValueNumber(&machineState);
 
     results->totalCount++;
-    if(value == answer) {
+    float epsilon = 0.01;
+    if((value - epsilon) < answer && (value + epsilon) > answer) {
         results->passedCount++;
     } else {
         printf("didn't pass: %s, got %f, wanted %f\n", code, value, answer);
@@ -304,10 +304,10 @@ void runLanguageUnitTests(GameState *gameState) {
     runUnitTest(&results, "sqrt(2^2+2^2);", 2.82842712); // sqrt(8)
     runUnitTest(&results, "sqrt(3^2+4^2);", 5);          // Pythagorean: 9+16=25
     runUnitTest(&results, "sqrt(5^2-3^2);", 4);          // 25-9=16
-    runUnitTest(&results, "sqrt(10*10-6*8);", 6);         // 100-48=52... wait, sqrt(52)
+    runUnitTest(&results, "sqrt(10*10-6*8);", 7.211103);         // 100-48=52... wait, sqrt(52)
     runUnitTest(&results, "sqrt((2+3)*5);", 5);           // 5*5=25
     runUnitTest(&results, "sqrt((3+1)^2);", 4);
-    runUnitTest(&results, "sqrt(9*4-2^4);", 4);           // 36-16=20... hmm
+    runUnitTest(&results, "sqrt(9*4-2^4);", 4.472135955);      
     runUnitTest(&results, "sqrt(-1*-9);", 3);             // -1*-9=9
 
     // sqr() with order of operations inside

@@ -1,134 +1,78 @@
-struct ResizeArrayHeader {
-    size_t sizeOfElement;
-    int elementsCount;
-    int maxCount;
-};
+template <typename T>
+struct List {
+    T* data;
+    int count;
+    int capacity;
+    Arena* arena;
 
-#define initResizeArray(type) (type *)initResizeArray_(sizeof(type))
+    // Equivalent to initResizeArray / initResizeArrayArena
+    static List<T> init(Arena* arena = nullptr, int initialCapacity = 1) {
+        List<T> list = {};
+        list.arena = arena;
+        list.count = 0;
+        list.capacity = initialCapacity;
 
-u8 *initResizeArray_(size_t sizeOfElement) {
-    ResizeArrayHeader *header =(ResizeArrayHeader *)easyPlatform_allocateMemory(sizeOfElement + sizeof(ResizeArrayHeader), EASY_PLATFORM_MEMORY_ZERO);
-    u8 *array = ((u8 *)header) + sizeof(ResizeArrayHeader);
-
-    header->sizeOfElement = sizeOfElement;
-    header->elementsCount = 0;
-    header->maxCount = 1;
-
-    return array;
-}
-
-ResizeArrayHeader *getResizeArrayHeader(u8 *array) {
-    ResizeArrayHeader *header = (ResizeArrayHeader *)(((u8 *)array) - sizeof(ResizeArrayHeader));
-    return header;
-}
-
-void freeResizeArray(void *array_) {
-    u8 *array = (u8 *)array_;
-    ResizeArrayHeader *header = getResizeArrayHeader(array);
-    easyPlatform_freeMemory(header);
-}
-
-u8 *getResizeArrayContents(ResizeArrayHeader *header) {
-    u8 *array = ((u8 *)header) + sizeof(ResizeArrayHeader);
-    return array;
-}
-
-int getArrayLength(void *array) {
-    if(!array) {
-        return 0;
-    }
-    ResizeArrayHeader *header = getResizeArrayHeader((u8 *)array);
-    assert(header->elementsCount <= header->maxCount);
-    int result = header->elementsCount;
-    return result;
-}
-
-void clearResizeArray(void *array) {
-    if(!array) {
-        return;
-    }
-    ResizeArrayHeader *header = getResizeArrayHeader((u8 *)array);
-    assert(header->elementsCount <= header->maxCount);
-    header->elementsCount = 0;
-}
-
-bool removeArrayAtIndex(void *array, int index) {
-    bool found = false;
-    if(!array) {
-        found = false;
-    } else {
-        ResizeArrayHeader *header = getResizeArrayHeader((u8 *)array);
-        assert(header->elementsCount <= header->maxCount);
-        assert(index < header->elementsCount);
-
-        if(index < header->elementsCount) {
-            found = true;
-            //NOTE: Move everything down
-            u8 *a = (u8 *)array;
-            for(int i = index; i < (header->elementsCount - 1); ++i) {
-                u8 *to = a + (i * header->sizeOfElement);
-                u8 *from = a + ((i + 1) * header->sizeOfElement);
-
-                easyPlatform_copyMemory(to, from, header->sizeOfElement);
-            }
-
-            header->elementsCount--;
+        size_t totalSize = sizeof(T) * list.capacity;
+        if (arena) {
+            list.data = (T*)pushSize(arena, totalSize);
+        } else {
+            list.data = (T*)easyPlatform_allocateMemory(totalSize, EASY_PLATFORM_MEMORY_ZERO);
         }
+        return list;
     }
 
-    return found;
-    
-}
-
-#define pushArrayItem(array_, data, type)  (type *)pushArrayItem_((void **)array_, &data)
-void *pushArrayItem_(void **array_, void *data) {
-    u8 *array = *((u8 **)array_);
-    u8 *newPos = 0;
-    if(array) {
-        ResizeArrayHeader *header = getResizeArrayHeader(array);
-
-        if(header->elementsCount == header->maxCount) {
-            //NOTE: Resize array
-            size_t oldSize = header->maxCount*header->sizeOfElement + sizeof(ResizeArrayHeader);
-            float resizeFactor = 1.5; //NOTE: Same as MSVC C++ Vector. x2 on GCC c++ Vector
-            header->maxCount = round(header->maxCount*resizeFactor); 
-            size_t newSize = header->maxCount*header->sizeOfElement + sizeof(ResizeArrayHeader);
-            header = (ResizeArrayHeader *)easyPlatform_reallocMemory(header, oldSize, newSize);
-
-            array = getResizeArrayContents(header);
-        } 
-
-        newPos = array + (header->elementsCount * header->sizeOfElement);
-        header->elementsCount++;
-
-        easyPlatform_copyMemory(newPos, data, header->sizeOfElement);
+    void release() {
+        if (!arena && data) {
+            easyPlatform_freeMemory(data);
+        } else if (arena) {
+            // As per your C code logic: we don't manually free arena memory
+            assert(false && "Cannot manually free arena-allocated List");
+        }
+        data = nullptr;
+        count = 0;
     }
 
-    *array_ = array;
+    T* push(T item) {
+        if (count == capacity) {
+            int oldCapacity = capacity;
+            capacity = round(capacity * 1.5f);
+            if (capacity <= oldCapacity) capacity++;
 
-    return newPos;
-}
+            size_t oldSize = oldCapacity * sizeof(T);
+            size_t newSize = capacity * sizeof(T);
 
-struct TestStruct {
-    int x;
-    int y; 
-    int z;
+            if (arena) {
+                MemoryPiece* piece = getCurrentMemoryPiece(arena);
+                u8* endOfArray = (u8*)data + oldSize;
+                u8* endOfArena = (u8*)piece->memory + piece->currentSize;
+                bool atEndOfArena = (endOfArray == endOfArena);
+
+                size_t deltaBytes = newSize - oldSize;
+                if (atEndOfArena && ((piece->currentSize + deltaBytes) <= piece->totalSize)) {
+                    piece->currentSize += deltaBytes;
+                } else {
+                    T* newData = (T*)pushSize(arena, newSize);
+                    easyPlatform_copyMemory(newData, data, oldSize);
+                    data = newData;
+                }
+            } else {
+                data = (T*)easyPlatform_reallocMemory(data, oldSize, newSize);
+            }
+        }
+
+        T* target = &data[count];
+        *target = item; // Typed assignment
+        count++;
+        return target;
+    }
+
+    void clear() {
+        count = 0;
+    }
+
+    // Sugar: let's you use list[i] instead of pointer math
+    T& operator[](int index) {
+        assert(index >= 0 && index < count);
+        return data[index];
+    }
 };
-
-void DEBUG_ArrayTests() {
-    TestStruct *blocks = initResizeArray(TestStruct);
-    TestStruct b;
-    pushArrayItem(&blocks, b, TestStruct);
-    assert(getArrayLength(blocks) == 1);
-
-    pushArrayItem(&blocks, b, TestStruct);
-    assert(getArrayLength(blocks) == 2);        
-
-    b.y = 2;
-
-    TestStruct *t = pushArrayItem(&blocks, b, TestStruct);
-    assert(getArrayLength(blocks) == 3);
-    assert(t->y == 2);
-
-
-}

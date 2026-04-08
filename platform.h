@@ -19,9 +19,9 @@ typedef intptr_t intprt;
 typedef u32 bool;
 #define true 1
 #define false 0
-#endif 
+#endif
 
-#define internal static 
+#define internal static
 
 #include "assert.h"
 #include "./3DMaths.h"
@@ -33,4 +33,6 @@ typedef u32 bool;
 #include "./render.h"
 #include "./defines.h"
 #include "./color_defines.h"
+#include "./easy_map.cpp"
+#include "./map_unit_tests.cpp"
 #include "./resize_array.cpp"

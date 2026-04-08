@@ -69,7 +69,7 @@ void updateGame(GameState *gameState) {
 
     if(gameState->enterPressed && easyString_getStringLength_utf8(gameState->stringBuffer.string) > 0) {
         refreshVmMemoryArena();
-        clearResizeArray(gameState->operations);
+        gameState->operations.clear();
         gameState->calculatorLineCount = 0;
 
         //TODO: Memory leak if we clear the whole cacluator, use another lifetime arena
@@ -109,7 +109,7 @@ void updateGame(GameState *gameState) {
         bool clear = false;
         if(!error) {
             VmMachineState machineState  = initVmMachineState();
-            clear = runCode(&machineState, gameState, gameState->operations, getArrayLength(gameState->operations));
+            clear = runCode(&machineState, gameState, gameState->operations);
         }
 
         if(!error) {

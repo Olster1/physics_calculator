@@ -127,12 +127,12 @@ LoadSettingsFileResult loadSettingsFile(SoundAssets *soundAssets, SettingsToSave
                     t = lexGetNextToken(&tokenizer);
                     assert(t.type == TOKEN_COLON);
                     t = lexGetNextToken(&tokenizer);
-                    assert(t.type == TOKEN_INTEGER);
+                    // if(t.type == TOKEN_INTEGER);
                     if(t.type == TOKEN_INTEGER) {
                         result.settingsToSave.windowPosX = t.intVal;
                     }
                     t = lexGetNextToken(&tokenizer);
-                    assert(t.type == TOKEN_INTEGER);
+                    // assert(t.type == TOKEN_INTEGER);
                     if(t.type == TOKEN_INTEGER) {
                         result.settingsToSave.windowPosY = t.intVal;
                     }

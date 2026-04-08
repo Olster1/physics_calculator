@@ -3,13 +3,14 @@ enum AstExpressionPrecendence {
     AST_PRECEDENCE_ASSIGN,
     AST_PRECEDENCE_SUM,
     AST_PRECEDENCE_PRODUCT,
-    AST_PRECEDENCE_EXPONENT,
     AST_PRECEDENCE_PREFIX,
     AST_PRECEDENCE_POSTFIX,
+    AST_PRECEDENCE_EXPONENT,
     AST_PRECEDENCE_CALL,
 };
 
 enum AstExpressionType {
+    AST_EXPRESSION_TYPE_BLOCK,
     AST_EXPRESSION_TYPE_ASSIGN,
     AST_EXPRESSION_TYPE_LITERAL,
     AST_EXPRESSION_TYPE_NAMED,
@@ -22,7 +23,6 @@ enum AstExpressionType {
 struct AstExpression {
     AstExpressionType type;
 
-
     EasyToken token;
     VmOperation operation; //NOTE: easy to just add it when we run the lexer
 
@@ -30,7 +30,7 @@ struct AstExpression {
     AstExpression *left;
     AstExpression *right;
 
-    AstExpression **arguments; //NOTE: Resize Array
+    List<AstExpression *> arguments; //NOTE: Resize Array
 };
 
 struct ExpressionParser {
@@ -66,7 +66,7 @@ AstExpression *parsePrefixExpression(ExpressionParser *parser, EasyToken t) {
             prefix->type = (t.type == TOKEN_WORD) ? AST_EXPRESSION_TYPE_NAMED : AST_EXPRESSION_TYPE_LITERAL;
         } break;
         case TOKEN_OPEN_PARENTHESIS: {
-            prefix = parseExpression(parser, AST_PRECEDENCE_PREFIX);
+            prefix = parseExpression(parser, 0);
             consumeNextToken(parser, TOKEN_CLOSE_PARENTHESIS);
         } break;
         default: {
@@ -104,6 +104,15 @@ AstExpressionPrecendence getInfixPrecedenceForToken(EasyToken t) {
     return precedence;
 }
 
+int getAssociativityInfixPrecedence(EasyToken t) {
+    //NOTE: Right hand associatvity operators where the expression on the right has more precendence than the thing of the left (carrot operator)
+    int result = 0;
+    if(t.type == TOKEN_CARROT) {
+        result = 0;
+    }
+    return result;
+}
+
 AstExpression *parseInfixExpression(ExpressionParser *parser, EasyToken t, AstExpression *left) {
     AstExpression *infix = 0;
     switch(t.type) {
@@ -116,7 +125,8 @@ AstExpression *parseInfixExpression(ExpressionParser *parser, EasyToken t, AstEx
             infix->token = t;
             infix->type = AST_EXPRESSION_TYPE_OPERATOR;
             infix->left = left;
-            infix->right = parseExpression(parser, getInfixPrecedenceForToken(t));
+
+            infix->right = parseExpression(parser, getInfixPrecedenceForToken(t) - getAssociativityInfixPrecedence(t));
         } break;
         case TOKEN_EQUALS: {
             infix = pushStruct(&globalPerFrameArena, AstExpression);
@@ -130,17 +140,20 @@ AstExpression *parseInfixExpression(ExpressionParser *parser, EasyToken t, AstEx
             infix->token = t;
             infix->type = AST_EXPRESSION_TYPE_CALL;
             infix->left = left;
-            infix->arguments = initResizeArray(AstExpression *);
+            infix->arguments = List<AstExpression *>::init();
 
 
-            if(lexSeeNextToken(parser->tokenizer).type != TOKEN_CLOSE_PARENTHESIS) {
+            if(lexSeeNextToken(&parser->tokenizer).type != TOKEN_CLOSE_PARENTHESIS) {
                 do {
                     AstExpression *arg  = parseExpression(parser, 0);
-                    pushArrayItem(&infix->arguments, arg, AstExpression *);
-                    consumeNextToken(parser, TOKEN_COMMA);
-                } while(lexSeeNextToken(parser->tokenizer).type == TOKEN_COMMA);
+                    infix->arguments.push(arg);
+
+                    if(lexSeeNextToken(&parser->tokenizer).type != TOKEN_CLOSE_PARENTHESIS) {
+                        consumeNextToken(parser, TOKEN_COMMA);
+                    }
+                } while(lexSeeNextToken(&parser->tokenizer).type != TOKEN_CLOSE_PARENTHESIS);
             }
-            consumeNextToken(parser, TOKEN_CLOSE_PARENTHESIS) {
+            consumeNextToken(parser, TOKEN_CLOSE_PARENTHESIS);
 
         } break;
         default: {
@@ -151,7 +164,7 @@ AstExpression *parseInfixExpression(ExpressionParser *parser, EasyToken t, AstEx
 }
 
 int getPrecedenceOfNextToken(ExpressionParser *parser) {
-    EasyToken nextToken = lexSeeNextToken(parser->tokenizer);
+    EasyToken nextToken = lexSeeNextToken(&parser->tokenizer);
     return (int)getInfixPrecedenceForToken(nextToken);
 }
 
@@ -162,18 +175,12 @@ AstExpression *parseExpression(ExpressionParser *parser, int precedence) {
     assert(left);
     //TODO: Emit error about expecting something else
 
-    if(precedence < getPrecedenceOfNextToken(parser)) {
-        lexGetNextToken(&parser->tokenizer); //NOTE: Consume the token we just saw with the above function getPrecedenceOfNextToken
-        left = parseInfixExpression(parser, t);
+    while(precedence < getPrecedenceOfNextToken(parser)) {
+        t = lexGetNextToken(&parser->tokenizer); //NOTE: Consume the token we just saw with the above function getPrecedenceOfNextToken
+        left = parseInfixExpression(parser, t, left);
         assert(left);
     }
     return left;
 }
 
-AstExpression *parseCode(char *codeToCompile) {
-    ExpressionParser parser = {};
-    parser.tokenizer = lexBeginParsing(codeToCompile, EASY_LEX_OPTION_EAT_WHITE_SPACE);
-
-    return parseExpression(&parse, 0);
-}
 

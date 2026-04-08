@@ -28,7 +28,7 @@ u32 getUiFlyInId(GameModeState state, u32 localIndex) {
         pitch = 1;
     } else if(state == GAME_SETTINGS_MODE) {
         pitch = 2;
-    } 
+    }
 
     result = localIndex + (FLY_IN_TIMERS_PRE_ROW*pitch);
 
@@ -57,13 +57,13 @@ struct GameState {
 
     float2 scrollWheelDelta;
 
-    VmOperation *operations; //NOTE: Resize array
+    List<VmOperation> operations;
 
     EasyUi_State uiState;
 
     StringBuffer stringBuffer;
     bool enterPressed;
-    
+
     StringBuffer *strBufferFreeList;
     float2 bufferOffset;
 
@@ -114,7 +114,7 @@ struct GameState {
 
 void clearCalculatorBuffer(GameState *gameState) {
     refreshVmMemoryArena();
-    clearResizeArray(gameState->operations);
+    gameState->operations.clear();
     gameState->calculatorLineCount = 0;
 
     //TODO: Memory leak if we clear the whole cacluator, use another lifetime arena when I allocate it - not the long term arena

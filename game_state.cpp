@@ -30,11 +30,12 @@ void initGameState(GameState *gameState) {
         gameState->uiFlyInTimers[i].max = random_between_float(MAX_FADE_TIME - 0.2f, MAX_FADE_TIME + 0.1f);
     }
     gameState->customBoardSize = 3;
-    gameState->operations = initResizeArray(VmOperation);
+    gameState->operations = List<VmOperation>::init();
     gameState->codeToRun = "";
     gameState->colorPallettes = init_color_palettes();
     gameState->colorPallette = &gameState->colorPallettes.witness;
     stringBuffer_init(&gameState->stringBuffer);
+    // DEBUG_MapTests(&globalPerFrameArena);
     // runLanguageUnitTests(gameState);
 }
 
