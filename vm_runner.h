@@ -25,6 +25,7 @@
     FUNC(OP_CODE_STRING) \
     FUNC(OP_CODE_VARIABLE_ASSIGN) \
     FUNC(OP_CODE_VARIABLE_REFERENCE) \
+    FUNC(OP_CODE_SUMMATION) \
     FUNC(OP_CODE_DECLARE) \
     FUNC(OP_CODE_CLEAR) \
     FUNC(OP_CODE_ERROR)
@@ -33,8 +34,8 @@ typedef enum {
     EASY_OP_CODE_TYPE(ENUM)
 } OpCode;
 
-static char *OpCodeTypeStrings[] = { 
-    EASY_OP_CODE_TYPE(STRING) 
+static char *OpCodeTypeStrings[] = {
+    EASY_OP_CODE_TYPE(STRING)
 };
 
 struct VmOperation {

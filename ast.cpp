@@ -1,16 +1,11 @@
 
-void astPrintTree(AstExpression *expression) {
-
-
-}
-
 AstExpression *parseGlobalScope(char *codeToCompile) {
     ExpressionParser parser = {};
     parser.tokenizer = lexBeginParsing(codeToCompile, EASY_LEX_OPTION_EAT_WHITE_SPACE);
 
     AstExpression *parent = pushStruct(&globalPerFrameArena, AstExpression);
     parent->type = AST_EXPRESSION_TYPE_BLOCK;
-    parent->arguments = List<AstExpression *>::init();
+    parent->arguments = List<AstExpression *>::init(&globalPerFrameArena);
 
     do {
         AstExpression *arg  = parseExpression(&parser, 0);
@@ -28,8 +23,6 @@ bool compileToByteCode(char *codeToCompile, List<VmOperation> *operations) {
     state->operations = operations;
 
     AstExpression *parent = parseGlobalScope(codeToCompile);
-
-    // astPrintTree(expression);
 
     if(parent) {
         if(state->error) {

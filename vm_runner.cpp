@@ -215,7 +215,20 @@ bool runCode(VmMachineState *state, GameState *gameState, List<VmOperation> oper
 
                 break;
             }
+            case OP_CODE_SUMMATION: {
+                double arrayLength = popAndGetValueNumber(state);
 
+                double total = 0;
+                for(int i = 0; i < arrayLength; ++i) {
+                    total += popAndGetValueNumber(state);
+                }
+
+                VmOperation newOp = { .type = OP_CODE_NUMBER};
+                newOp.value_ = sin(vm_getAngle(state, total));
+
+                vmMachine_push(state, newOp);
+                break;
+            }
             // --- Trigonometry ---
             case OP_CODE_SIN: {
                 double value = popAndGetValueNumber(state);
@@ -225,6 +238,7 @@ bool runCode(VmMachineState *state, GameState *gameState, List<VmOperation> oper
                 vmMachine_push(state, newOp);
                 break;
             }
+
             case OP_CODE_COS: {
                 double value = popAndGetValueNumber(state);
                 VmOperation newOp = { .type = OP_CODE_NUMBER};

@@ -141,6 +141,9 @@ void runLanguageUnitTests(GameState *gameState) {
     runUnitTest(&results, "(10-3);", 7);
     runUnitTest(&results, "(10/2);", 5);
 
+    // Exponent right hand associatavity precendance
+    runUnitTest(&results, "2^3^2;", 512);
+
     // Parentheses overriding precedence
     runUnitTest(&results, "(2+3)*4;", 20);
     runUnitTest(&results, "4*(2+3);", 20);
@@ -307,7 +310,7 @@ void runLanguageUnitTests(GameState *gameState) {
     runUnitTest(&results, "sqrt(10*10-6*8);", 7.211103);         // 100-48=52... wait, sqrt(52)
     runUnitTest(&results, "sqrt((2+3)*5);", 5);           // 5*5=25
     runUnitTest(&results, "sqrt((3+1)^2);", 4);
-    runUnitTest(&results, "sqrt(9*4-2^4);", 4.472135955);      
+    runUnitTest(&results, "sqrt(9*4-2^4);", 4.472135955);
     runUnitTest(&results, "sqrt(-1*-9);", 3);             // -1*-9=9
 
     // sqr() with order of operations inside

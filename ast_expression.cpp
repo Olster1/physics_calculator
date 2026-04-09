@@ -58,6 +58,21 @@ AstExpression *parsePrefixExpression(ExpressionParser *parser, EasyToken t) {
             prefix->type = AST_EXPRESSION_TYPE_PREFIX;
             prefix->right = parseExpression(parser, AST_PRECEDENCE_PREFIX);
         } break;
+        case TOKEN_OPEN_SQUARE_BRACKET: {
+            prefix = pushStruct(&globalPerFrameArena, AstExpression);
+            prefix->token = t;
+            prefix->type = AST_EXPRESSION_TYPE_PREFIX;
+            prefix->arguments = List<AstExpression *>::init(&globalPerFrameArena);
+
+            while(lexSeeNextToken(&parser->tokenizer).type != TOKEN_CLOSE_SQUARE_BRACKET) {
+                prefix->arguments.push(parseExpression(parser, 0));
+                if(lexSeeNextToken(&parser->tokenizer).type != TOKEN_CLOSE_SQUARE_BRACKET) {
+                    consumeNextToken(parser, TOKEN_COMMA);
+                }
+            }
+
+            consumeNextToken(parser, TOKEN_CLOSE_SQUARE_BRACKET);
+        } break;
         case TOKEN_WORD:
         case TOKEN_FLOAT:
         case TOKEN_INTEGER: {
@@ -105,10 +120,10 @@ AstExpressionPrecendence getInfixPrecedenceForToken(EasyToken t) {
 }
 
 int getAssociativityInfixPrecedence(EasyToken t) {
-    //NOTE: Right hand associatvity operators where the expression on the right has more precendence than the thing of the left (carrot operator)
+    //NOTE: Right hand associatvity operators if you have the same operator in a row say 2^3^4 it should be 2^(3^4) whereas other math operations like 2*3*4 are (2*3)*4
     int result = 0;
     if(t.type == TOKEN_CARROT) {
-        result = 0;
+        result = 1;
     }
     return result;
 }
@@ -125,33 +140,30 @@ AstExpression *parseInfixExpression(ExpressionParser *parser, EasyToken t, AstEx
             infix->token = t;
             infix->type = AST_EXPRESSION_TYPE_OPERATOR;
             infix->left = left;
+            infix->right = parseExpression(parser, getInfixPrecedenceForToken(t) - getAssociativityInfixPrecedence(t)); //NOTE: This is for operators of the same precedence value. For example (10 - 3) - 2 is different to 10 - (3 - 2)
 
-            infix->right = parseExpression(parser, getInfixPrecedenceForToken(t) - getAssociativityInfixPrecedence(t));
         } break;
         case TOKEN_EQUALS: {
             infix = pushStruct(&globalPerFrameArena, AstExpression);
             infix->token = t;
             infix->type = AST_EXPRESSION_TYPE_ASSIGN;
             infix->left = left;
-            infix->right = parseExpression(parser, getInfixPrecedenceForToken(t));
+            infix->right = parseExpression(parser, 0);
         } break;
         case TOKEN_OPEN_PARENTHESIS: {
             infix = pushStruct(&globalPerFrameArena, AstExpression);
             infix->token = t;
             infix->type = AST_EXPRESSION_TYPE_CALL;
             infix->left = left;
-            infix->arguments = List<AstExpression *>::init();
+            infix->arguments = List<AstExpression *>::init(&globalPerFrameArena);
 
+            while(lexSeeNextToken(&parser->tokenizer).type != TOKEN_CLOSE_PARENTHESIS) {
+                AstExpression *arg  = parseExpression(parser, 0);
+                infix->arguments.push(arg);
 
-            if(lexSeeNextToken(&parser->tokenizer).type != TOKEN_CLOSE_PARENTHESIS) {
-                do {
-                    AstExpression *arg  = parseExpression(parser, 0);
-                    infix->arguments.push(arg);
-
-                    if(lexSeeNextToken(&parser->tokenizer).type != TOKEN_CLOSE_PARENTHESIS) {
-                        consumeNextToken(parser, TOKEN_COMMA);
-                    }
-                } while(lexSeeNextToken(&parser->tokenizer).type != TOKEN_CLOSE_PARENTHESIS);
+                if(lexSeeNextToken(&parser->tokenizer).type != TOKEN_CLOSE_PARENTHESIS) {
+                    consumeNextToken(parser, TOKEN_COMMA);
+                }
             }
             consumeNextToken(parser, TOKEN_CLOSE_PARENTHESIS);
 
