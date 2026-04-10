@@ -56,7 +56,7 @@ Rect2f renderTextAsTokens(GameState *gameState, char *string, float2 at, float2 
 
 void runCalculator(GameState *gameState) {
     //TODO: Memory leak if we clear the whole calculator, use another lifetime arena
-    char *codeToRun = easy_createString_printf(&globalLongTermArena, "%s%s;",  gameState->codeToRun, gameState->stringBuffer.string);
+    char *codeToRun = easy_createString_printf(&globalPerClearSessionArena, "%s%s;",  gameState->codeToRun, gameState->stringBuffer.string);
 
     int numberOfLines = 0;
     {
@@ -91,7 +91,7 @@ void runCalculator(GameState *gameState) {
 
     bool clear = false;
     if(!error) {
-        VmMachineState machineState  = initVmMachineState(gameState->useRadians);
+        VmMachineState machineState  = initVmMachineState(gameState->startUseRadians);
         clear = runCode(&machineState, gameState, gameState->operations);
     }
 
@@ -121,21 +121,19 @@ void updateGame(GameState *gameState) {
 
 
     if(gameState->enterPressed && easyString_getStringLength_utf8(gameState->stringBuffer.string) > 0) {
-        refreshVmMemoryArena();
-        gameState->operations.clear();
-        gameState->calculatorLineCount = 0;
-
-        //NOTE: Add string to history
-        gameState->bufferHistory.push(easy_createString_printf(&globalLongTermArena, "%s", gameState->stringBuffer.string));
-        gameState->historyAt = gameState->bufferHistory.count;
-
         //NOTE: We handle clear the buffer here instead of trying to parse the command since it's not a function it's just one word
         if(easyString_stringsMatch_nullTerminated(gameState->stringBuffer.string, "clear")) {
             //NOTE: Clear the buffer
             clearCalculatorBuffer(gameState);
             clearStringBuffer(&gameState->stringBuffer);
-
         } else {
+            refreshVmMemoryArena();
+            gameState->operations.clear();
+            gameState->calculatorLineCount = 0;
+
+            //NOTE: Add string to history
+            gameState->bufferHistory.push(easy_createString_printf(&globalLongTermArena, "%s", gameState->stringBuffer.string));
+            gameState->historyAt = gameState->bufferHistory.count;
             runCalculator(gameState);
         }
 

@@ -207,7 +207,7 @@ int main(int argc, char** argv) {
         gameState->settingsToSave.windowX = w;
         gameState->settingsToSave.windowY = h;
 
-        saveSettingsFile(&gameState->settingsToSave, gameState->settingsToSave.playingFileId);
+        saveSettingsFile(&gameState->settingsToSave);
       }
       if (e.type == SDL_EVENT_WINDOW_MOVED) {
         int x = e.window.data1;
@@ -215,7 +215,7 @@ int main(int argc, char** argv) {
         gameState->settingsToSave.windowPosX = x;
         gameState->settingsToSave.windowPosY = y;
 
-        saveSettingsFile(&gameState->settingsToSave, gameState->settingsToSave.playingFileId);
+        saveSettingsFile(&gameState->settingsToSave);
       } else if (e.type == SDL_EVENT_TEXT_INPUT) {
         stringBuffer_insertString(&gameState->stringBuffer, (char *)e.text.text);
       }

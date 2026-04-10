@@ -4,12 +4,10 @@ void initFont(GameState *gameState) {
 
 void initGameState(GameState *gameState) {
     gameState->initialized = true;
-    loadAnimations(gameState);
-    loadImages(gameState);
     initFont(gameState);
-    initSound(gameState);
+    loadImages(gameState);
 
-    LoadSettingsFileResult loadResult = loadSettingsFile(&gameState->soundAssets, &gameState->settingsToSave);
+    LoadSettingsFileResult loadResult = loadSettingsFile(&gameState->settingsToSave);
     gameState->settingsToSave = loadResult.settingsToSave;
     platform_setWindowSize(gameState->settingsToSave.windowX, gameState->settingsToSave.windowY);
     platform_setWindowPos(gameState->settingsToSave.windowPosX, gameState->settingsToSave.windowPosY);
@@ -23,6 +21,7 @@ void initGameState(GameState *gameState) {
     // DEBUG_MapTests(&globalPerFrameArena);
     // runLanguageUnitTests(gameState);
     gameState->bufferHistory = List<char *>::init(&globalLongTermArena);
+    gameState->startUseRadians = gameState->useRadians = true;
 }
 
 GameState *allocateGameState() {

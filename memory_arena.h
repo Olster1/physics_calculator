@@ -171,9 +171,9 @@ void releaseMemoryMark(MemoryArenaMark *mark) {
 
 static Arena globalLongTermArena;
 static Arena globalPerFrameArena;
-static Arena globalBoardValuesArena;
+static Arena globalPerClearSessionArena;
 static Arena globalPerVmRunLifetime;
-static MemoryArenaMark boardValuesArenaMark;
+static MemoryArenaMark perClearSessionArenaMark;
 static MemoryArenaMark perFrameArenaMark;
 static MemoryArenaMark perVmArenaMark;
 
@@ -240,18 +240,18 @@ inline char *easy_createString_printf(Arena *arena, char *formatString, ...) {
 }
 
 void initMemoryArenas() {
-    globalBoardValuesArena = createArena(Kilobytes(200));
+    globalPerClearSessionArena = createArena(Kilobytes(200));
     globalLongTermArena = createArena(Kilobytes(200));
     globalPerFrameArena = createArena(Kilobytes(100));
     globalPerVmRunLifetime = createArena(Megabytes(1));
     perFrameArenaMark = takeMemoryMark(&globalPerFrameArena);
-    boardValuesArenaMark = takeMemoryMark(&globalBoardValuesArena);
+    perClearSessionArenaMark = takeMemoryMark(&globalPerClearSessionArena);
     perVmArenaMark = takeMemoryMark(&globalPerVmRunLifetime);
 }
 
-void refreshBoardValuesMemoryArena() {
-    releaseMemoryMark(&boardValuesArenaMark);
-    boardValuesArenaMark = takeMemoryMark(&globalBoardValuesArena);
+void refreshPerClearSessionArena() {
+    releaseMemoryMark(&perClearSessionArenaMark);
+    perClearSessionArenaMark = takeMemoryMark(&globalPerClearSessionArena);
 }
 
 void refreshVmMemoryArena() {
