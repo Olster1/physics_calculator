@@ -58,6 +58,8 @@ struct GameState {
     float2 scrollWheelDelta;
 
     List<VmOperation> operations;
+    int historyAt;
+    List<char *> bufferHistory; //NOTE: Strings users have entered already which last the lifetime of the program
 
     EasyUi_State uiState;
 

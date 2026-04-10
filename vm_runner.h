@@ -61,6 +61,7 @@ struct StackVariable {
 
 struct VmNumberType {
     double value;
+    char *name; //NOTE: If it's a string value
     int count; //NOTE: If more than 1 it's an array type and there still on the stack
 };
 

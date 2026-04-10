@@ -22,6 +22,7 @@ void initGameState(GameState *gameState) {
     gameState->useRadians = true;
     // DEBUG_MapTests(&globalPerFrameArena);
     // runLanguageUnitTests(gameState);
+    gameState->bufferHistory = List<char *>::init(&globalLongTermArena);
 }
 
 GameState *allocateGameState() {

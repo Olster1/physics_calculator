@@ -53,6 +53,59 @@ Rect2f renderTextAsTokens(GameState *gameState, char *string, float2 at, float2 
     }
     return totalBounds;
 }
+
+void runCalculator(GameState *gameState) {
+    //TODO: Memory leak if we clear the whole calculator, use another lifetime arena
+    char *codeToRun = easy_createString_printf(&globalLongTermArena, "%s%s;",  gameState->codeToRun, gameState->stringBuffer.string);
+
+    int numberOfLines = 0;
+    {
+        //NODE: Run through all code to find number of new lines
+        char *str = codeToRun;
+        while(*str) {
+            if(*str == ';') {
+                numberOfLines++;
+            }
+            str++;
+        }
+
+        //NOTE: Allocate the array
+        gameState->maxCalculatorLineCount = numberOfLines;
+        gameState->calculatorLines = pushArray(&globalPerVmRunLifetime, numberOfLines, CalculatorLine);
+
+        //NOTE: Loop through again and set the strings
+        char *start = codeToRun;
+        str = codeToRun;
+        int lineAt = 0;
+        while(*str) {
+            if(*str == ';') {
+                gameState->calculatorLines[lineAt++].in = nullTerminateArena(start, (int)(str - start), &globalPerVmRunLifetime);
+                start = str + 1;
+            }
+            str++;
+        }
+    }
+
+
+    bool error = compileToByteCode(codeToRun, &gameState->operations);
+
+    bool clear = false;
+    if(!error) {
+        VmMachineState machineState  = initVmMachineState(gameState->useRadians);
+        clear = runCode(&machineState, gameState, gameState->operations);
+    }
+
+    if(!error) {
+        //NOTE: Keep the buffer the user wrote if there was an error parsing it
+        clearStringBuffer(&gameState->stringBuffer);
+    }
+
+    if(!error && !clear) {
+        gameState->codeToRun = codeToRun;
+    }
+}
+
+
 void updateGame(GameState *gameState) {
     assert(gameState->initialized);
 
@@ -72,53 +125,18 @@ void updateGame(GameState *gameState) {
         gameState->operations.clear();
         gameState->calculatorLineCount = 0;
 
-        //TODO: Memory leak if we clear the whole cacluator, use another lifetime arena
-        char *codeToRun = easy_createString_printf(&globalLongTermArena, "%s%s;",  gameState->codeToRun, gameState->stringBuffer.string);
+        //NOTE: Add string to history
+        gameState->bufferHistory.push(easy_createString_printf(&globalLongTermArena, "%s", gameState->stringBuffer.string));
+        gameState->historyAt = gameState->bufferHistory.count;
 
-        int numberOfLines = 0;
-        {
-            //NODE: Run through all code to find number of new lines
-            char *str = codeToRun;
-            while(*str) {
-                if(*str == ';') {
-                    numberOfLines++;
-                }
-                str++;
-            }
-
-            //NOTE: Allocate the array
-            gameState->maxCalculatorLineCount = numberOfLines;
-            gameState->calculatorLines = pushArray(&globalPerVmRunLifetime, numberOfLines, CalculatorLine);
-
-            //NOTE: Loop through again and set the strings
-            char *start = codeToRun;
-            str = codeToRun;
-            int lineAt = 0;
-            while(*str) {
-                if(*str == ';') {
-                    gameState->calculatorLines[lineAt++].in = nullTerminateArena(start, (int)(str - start), &globalPerVmRunLifetime);
-                    start = str + 1;
-                }
-                str++;
-            }
-        }
-
-
-        bool error = compileToByteCode(codeToRun, &gameState->operations);
-
-        bool clear = false;
-        if(!error) {
-            VmMachineState machineState  = initVmMachineState(gameState->useRadians);
-            clear = runCode(&machineState, gameState, gameState->operations);
-        }
-
-        if(!error) {
-            //NOTE: Keep the buffer the user wrote if there was an error parsing it
+        //NOTE: We handle clear the buffer here instead of trying to parse the command since it's not a function it's just one word
+        if(easyString_stringsMatch_nullTerminated(gameState->stringBuffer.string, "clear")) {
+            //NOTE: Clear the buffer
+            clearCalculatorBuffer(gameState);
             clearStringBuffer(&gameState->stringBuffer);
-        }
 
-        if(!error && !clear) {
-            gameState->codeToRun = codeToRun;
+        } else {
+            runCalculator(gameState);
         }
 
     }

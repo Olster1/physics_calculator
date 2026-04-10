@@ -75,8 +75,6 @@ void initCompiler(CompilerState *state) {
 
     state->functionCalls.insert("set_radians", InterpreterFunction::init({ .type = OP_CODE_SET_RADIANS_MODE }));
     state->functionCalls.insert("set_degrees", InterpreterFunction::init({ .type = OP_CODE_SET_DEGREES_MODE }));
-
-    assert(state->functionCalls.get("sin"));
 }
 
 void pushCompilerVariable(CompilerState *state, char *name, AstVariableType type) {

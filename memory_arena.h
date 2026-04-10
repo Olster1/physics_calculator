@@ -188,7 +188,6 @@ char *nullTerminateBuffer(char *result, char *string, int length) {
 #define nullTerminate(string, length) nullTerminateBuffer((char *)malloc(length + 1), string, length)
 #define nullTerminateArena(string, length, arena) nullTerminateBuffer((char *)pushArray(arena, length + 1, char), string, length)
 
-
 #define concat_withLength(a, aLength, b, bLength) concat_(a, aLength, b, bLength, 0)
 #define concat(a, b) concat_(a, easyString_getSizeInBytes_utf8(a), b, easyString_getSizeInBytes_utf8(b), 0)
 #define concatInArena(a, b, arena) concat_(a, easyString_getSizeInBytes_utf8(a), b, easyString_getSizeInBytes_utf8(b), arena)

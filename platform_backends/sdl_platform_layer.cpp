@@ -175,6 +175,26 @@ int main(int argc, char** argv) {
         if (e.key.key == SDLK_RIGHT) {
           stringBuffer_cursorRight(&gameState->stringBuffer, 1);
         }
+        if (e.key.key == SDLK_DOWN) {
+          if(gameState->historyAt < gameState->bufferHistory.count) {
+            gameState->historyAt++;
+            if(gameState->historyAt < gameState->bufferHistory.count) {
+              clearStringBuffer(&gameState->stringBuffer);
+              stringBuffer_insertString(&gameState->stringBuffer, gameState->bufferHistory[gameState->historyAt]);
+            } else {
+              clearStringBuffer(&gameState->stringBuffer);
+            }
+          } else {
+              clearStringBuffer(&gameState->stringBuffer);
+          }
+        }
+        if (e.key.key == SDLK_UP) {
+          if(gameState->historyAt > 0) {
+            gameState->historyAt--;
+            clearStringBuffer(&gameState->stringBuffer);
+            stringBuffer_insertString(&gameState->stringBuffer, gameState->bufferHistory[gameState->historyAt]);
+          }
+        }
         if (e.key.key == SDLK_BACKSPACE) {
           stringBuffer_removeCharacter(&gameState->stringBuffer);
         }

@@ -83,6 +83,8 @@ VmNumberType vmOp_getValue(VmMachineState *state, VmOperation op) {
         }
     } else if(op.type == OP_CODE_NUMBER_ARRAY) {
         result.count = op.value_;
+    } else if(op.type == OP_CODE_STRING) {
+        result.name = op.name;
     } else {
         state->panic = "Expected a number of variable";
         assert(false);
@@ -169,6 +171,7 @@ bool runCode(VmMachineState *state, GameState *gameState, List<VmOperation> oper
 
                     StringBuffer b = {};
                     if(value.count > 1) {
+                        assert(!value.name);
                         b.string = "[";
                         for(int i = 0; i < value.count; ++i) {
                             double arrayValue = popAndGetValueNumber(state).value;
@@ -176,7 +179,12 @@ bool runCode(VmMachineState *state, GameState *gameState, List<VmOperation> oper
                         }
                         b.string = easy_createString_printf(&globalPerVmRunLifetime, "%s]", b.string);
                     } else {
-                        b.string = easy_createString_printf(&globalPerVmRunLifetime, "%f", value);
+                        if(value.name) {
+                            b.string = easy_createString_printf(&globalPerVmRunLifetime, "%s", value.name);
+                        } else {
+                            b.string = easy_createString_printf(&globalPerVmRunLifetime, "%f", value.value);
+                        }
+
                     }
 
 
@@ -249,7 +257,7 @@ bool runCode(VmMachineState *state, GameState *gameState, List<VmOperation> oper
             // --- Trigonometry ---
             case OP_CODE_SIN: {
                 double value = popAndGetValueNumber(state).value;
-                VmOperation newOp = { .type = OP_CODE_NUMBER};
+                VmOperation newOp = { .type = OP_CODE_NUMBER };
                 newOp.value_ = sin(vm_getAngle(state, value));
 
                 vmMachine_push(state, newOp);
@@ -258,56 +266,56 @@ bool runCode(VmMachineState *state, GameState *gameState, List<VmOperation> oper
 
             case OP_CODE_COS: {
                 double value = popAndGetValueNumber(state).value;
-                VmOperation newOp = { .type = OP_CODE_NUMBER};
+                VmOperation newOp = { .type = OP_CODE_NUMBER };
                 newOp.value_ = cos(vm_getAngle(state, value));
                 vmMachine_push(state, newOp);
                 break;
             }
              case OP_CODE_NEGATE: {
                 double value = popAndGetValueNumber(state).value;
-                VmOperation newOp = { .type = OP_CODE_NUMBER};
+                VmOperation newOp = { .type = OP_CODE_NUMBER };
                 newOp.value_ = -1*value;
                 vmMachine_push(state, newOp);
                 break;
             }
             case OP_CODE_TAN: {
                 double value = popAndGetValueNumber(state).value;
-                VmOperation newOp = { .type = OP_CODE_NUMBER};
+                VmOperation newOp = { .type = OP_CODE_NUMBER };
                 newOp.value_ = tan(vm_getAngle(state, value));
                 vmMachine_push(state, newOp);
                 break;
             }
             case OP_CODE_ARCSIN: {
                 double value = popAndGetValueNumber(state).value;
-                VmOperation newOp = { .type = OP_CODE_NUMBER};
+                VmOperation newOp = { .type = OP_CODE_NUMBER };
                 newOp.value_ = asin(vm_getAngle(state, value));
                 vmMachine_push(state, newOp);
                 break;
             }
              case OP_CODE_SQR: {
                 double value = popAndGetValueNumber(state).value;
-                VmOperation newOp = { .type = OP_CODE_NUMBER};
+                VmOperation newOp = { .type = OP_CODE_NUMBER} ;
                 newOp.value_ = value * value;
                 vmMachine_push(state, newOp);
                 break;
             }
             case OP_CODE_SQRT: {
                 double value = popAndGetValueNumber(state).value;
-                VmOperation newOp = { .type = OP_CODE_NUMBER};
+                VmOperation newOp = { .type = OP_CODE_NUMBER };
                 newOp.value_ = sqrt(value);
                 vmMachine_push(state, newOp);
                 break;
             }
             case OP_CODE_ARCCOS: {
                 double value = popAndGetValueNumber(state).value;
-                VmOperation newOp = { .type = OP_CODE_NUMBER};
+                VmOperation newOp = { .type = OP_CODE_NUMBER };
                 newOp.value_ = acos(vm_getAngle(state, value));
                 vmMachine_push(state, newOp);
                 break;
             }
             case OP_CODE_ARCTAN: {
                 double value = popAndGetValueNumber(state).value;
-                VmOperation newOp = { .type = OP_CODE_NUMBER};
+                VmOperation newOp = { .type = OP_CODE_NUMBER };
                 newOp.value_ = atan(vm_getAngle(state, value));
                 vmMachine_push(state, newOp);
                 break;
@@ -325,11 +333,13 @@ bool runCode(VmMachineState *state, GameState *gameState, List<VmOperation> oper
             case OP_CODE_SET_DEGREES_MODE: {
                 state->useRadians = false;
                 gameState->useRadians = false;
+                vmMachine_push(state, { .type = OP_CODE_STRING, .name = "Degrees Set" });
                 break;
             }
             case OP_CODE_SET_RADIANS_MODE: {
                 state->useRadians = true;
                 gameState->useRadians = true;
+                vmMachine_push(state, { .type = OP_CODE_STRING, .name = "Radians Set" });
                 break;
             }
 
