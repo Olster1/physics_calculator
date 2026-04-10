@@ -14,7 +14,7 @@ void runUnitTest(UnitTestResults *results,  char *code, double answer) {
     VmMachineState machineState  = initVmMachineState();
     runCode(&machineState, gameState, gameState->operations, true);
 
-    double value = popAndGetValueNumber(&machineState);
+    double value = popAndGetValueNumber(&machineState).value;
 
     results->totalCount++;
     float epsilon = 0.01;

@@ -108,7 +108,7 @@ void updateGame(GameState *gameState) {
 
         bool clear = false;
         if(!error) {
-            VmMachineState machineState  = initVmMachineState();
+            VmMachineState machineState  = initVmMachineState(gameState->useRadians);
             clear = runCode(&machineState, gameState, gameState->operations);
         }
 
@@ -140,6 +140,19 @@ void updateGame(GameState *gameState) {
         }
     }
 
+
+    //NOTE: Draw radians or degrees mode
+    {
+        float scale = 0.8f*BODY_FONT_SCALE;
+        float2 at = make_float2(0.5*plane.x, 0.5*plane.y - scale*gameState->mainFont.fontHeight);
+        char *angleMode = "rad";
+        if(!gameState->useRadians) {
+            angleMode = "deg";
+        }
+        Rect2f bounds = renderText(&gameState->renderer, &gameState->mainFont, angleMode, at, scale, gameState->colorPallette->standard, false);
+        at.x -= get_scale_rect2f(bounds).x + 2;
+        renderText(&gameState->renderer, &gameState->mainFont, angleMode, at, scale, gameState->colorPallette->standard);
+    }
 
 
     float startX = -0.5f*plane.x - gameState->bufferOffset.x;

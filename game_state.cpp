@@ -19,6 +19,7 @@ void initGameState(GameState *gameState) {
     gameState->colorPallettes = init_color_palettes();
     gameState->colorPallette = &gameState->colorPallettes.witness;
     stringBuffer_init(&gameState->stringBuffer);
+    gameState->useRadians = true;
     // DEBUG_MapTests(&globalPerFrameArena);
     // runLanguageUnitTests(gameState);
 }

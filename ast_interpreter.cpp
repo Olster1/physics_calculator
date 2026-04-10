@@ -67,7 +67,14 @@ void initCompiler(CompilerState *state) {
     state->functionCalls.insert("sqr", InterpreterFunction::init({ .type = OP_CODE_SQR }));
     state->functionCalls.insert("sqrt", InterpreterFunction::init({ .type = OP_CODE_SQRT }));
 
+    state->functionCalls.insert("dot", InterpreterFunction::init({ .type = OP_CODE_DOT_PRODUCT }));
+    state->functionCalls.insert("cross", InterpreterFunction::init({ .type = OP_CODE_CROSS_PRODUCT }));
+    state->functionCalls.insert("length", InterpreterFunction::init({ .type = OP_CODE_VECTOR_LENGTH }));
+
     state->functionCalls.insert("sum", InterpreterFunction::init({ .type = OP_CODE_SUMMATION }, INTERP_FUNCTION_VARIABLE_LENGTH));
+
+    state->functionCalls.insert("set_radians", InterpreterFunction::init({ .type = OP_CODE_SET_RADIANS_MODE }));
+    state->functionCalls.insert("set_degrees", InterpreterFunction::init({ .type = OP_CODE_SET_DEGREES_MODE }));
 
     assert(state->functionCalls.get("sin"));
 }
@@ -161,9 +168,11 @@ void interpretBlockExpression(CompilerState *state, AstExpression *expression) {
 }
 
 void interpretArrayExpression(CompilerState *state, AstExpression *expression) {
-    for(int i = 0; i < expression->arguments.count; ++i) {
+    for(int i = expression->arguments.count - 1; i >= 0 ; --i) {
         interpretExpression(state, expression->arguments[i]);
     }
+    state->operations->push({ .type = OP_CODE_NUMBER_ARRAY, .value_ = (double)expression->arguments.count });
+
 }
 
 void interpretCallExpression(CompilerState *state, AstExpression *expression) {

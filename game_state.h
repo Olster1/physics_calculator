@@ -96,6 +96,8 @@ struct GameState {
 
     PlatformAudioSpec audioSpec;
 
+    bool useRadians;
+
     float dt;
     Font mainFont;
 
