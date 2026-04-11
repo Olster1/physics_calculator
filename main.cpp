@@ -196,6 +196,35 @@ void updateGame(GameState *gameState) {
         }
     }
 
+    if(gameState->mode == INTERACTION_MODE_PICK_THEME) {
+        char *names[] = {
+            "handmade",
+            "witness",
+        	"midnight",
+            "evergreen",
+            "paperback",
+            "cold_iron"
+        };
+
+        float2 at = make_float2(0, 0.3*plane.y);
+        for(int i = 0; i < 6; ++i) {
+            float scale = 0.8f*BODY_FONT_SCALE;
+
+            char *name = names[i];
+            Rect2f dim = renderText_centered(&gameState->renderer, &gameState->mainFont, name, at, scale, gameState->colorPallette->standard, false);
+
+            float4 color = gameState->colorPallette->backgroundVariation;
+            if(i == gameState->themeIndex) {
+                color = gameState->colorPallette->preprocessor;
+            }
+
+            pushRenderTexture(&gameState->renderer, make_transformX_float2(get_centre_rect2f(dim), get_scale_rect2f(dim)), gameState->imageFiles.whiteImage, color);
+            renderText_centered(&gameState->renderer, &gameState->mainFont, name, at, scale, gameState->colorPallette->standard);
+
+            at.y -= scale*gameState->mainFont.fontHeight;
+        }
+        int themeIndex;
+    }
 
 
     gameState->bufferOffset = plus_float2(gameState->bufferOffset, gameState->scrollWheelDelta);

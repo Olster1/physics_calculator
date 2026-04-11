@@ -15,7 +15,7 @@ void initGameState(GameState *gameState) {
     gameState->operations = List<VmOperation>::init(&globalLongTermArena);
     gameState->codeToRun = "";
     gameState->colorPallettes = init_color_palettes();
-    gameState->colorPallette = &gameState->colorPallettes.witness;
+    gameState->colorPallette = &gameState->colorPallettes.pallettes [0];
     stringBuffer_init(&gameState->stringBuffer);
     gameState->useRadians = true;
     // DEBUG_MapTests(&globalPerFrameArena);

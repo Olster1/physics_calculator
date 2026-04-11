@@ -57,6 +57,7 @@ struct CompilerState {
 void initCompiler(CompilerState *state) {
     state->functionCalls = Map<char *, InterpreterFunction>::init(&globalPerFrameArena);
 
+    state->functionCalls.insert("quad", InterpreterFunction::init({ .type = OP_CODE_QUADRATIC }));
     state->functionCalls.insert("sin", InterpreterFunction::init({ .type = OP_CODE_SIN }));
     state->functionCalls.insert("cos", InterpreterFunction::init({ .type = OP_CODE_COS }));
     state->functionCalls.insert("tan", InterpreterFunction::init({ .type = OP_CODE_TAN }));

@@ -34,88 +34,82 @@ static inline float4 color_hexARGBTo01(unsigned int color) {
 }
 
 struct Color_Palettes {
-	Editor_Color_Palette witness;
-	Editor_Color_Palette handmade;
-	Editor_Color_Palette midnight;
-    Editor_Color_Palette evergreen;
-    Editor_Color_Palette paperback;
-    Editor_Color_Palette cold_iron;
+	Editor_Color_Palette pallettes[6];
 };
 
 static Color_Palettes init_color_palettes() {
 
 	Color_Palettes result = {};
 
-	result.handmade.background = color_hexARGBTo01(0xFF161616);
-	result.handmade.backgroundVariation = color_hexARGBTo01(0xFF3c3d3d);
-	result.handmade.standard =  color_hexARGBTo01(0xFFA08563);
-	result.handmade.variable = color_hexARGBTo01(0xFF6B8E23);
-	result.handmade.bracket = color_hexARGBTo01(0xFFDAB98F);
-	result.handmade.function = color_hexARGBTo01(0xFF008563);
-	result.handmade.keyword = color_hexARGBTo01(0xFFCD950C);
-	result.handmade.comment = color_hexARGBTo01(0xFF7D7D7D);
-	result.handmade.preprocessor = color_hexARGBTo01(0xFFDAB98F);
-	result.handmade.string = color_hexARGBTo01(0xFFDAB98F);
+	result.pallettes[0].background = color_hexARGBTo01(0xFF161616);
+	result.pallettes[0].backgroundVariation = color_hexARGBTo01(0xFF3c3d3d);
+	result.pallettes[0].standard =  color_hexARGBTo01(0xFFA08563);
+	result.pallettes[0].variable = color_hexARGBTo01(0xFF6B8E23);
+	result.pallettes[0].bracket = color_hexARGBTo01(0xFFDAB98F);
+	result.pallettes[0].function = color_hexARGBTo01(0xFF008563);
+	result.pallettes[0].keyword = color_hexARGBTo01(0xFFCD950C);
+	result.pallettes[0].comment = color_hexARGBTo01(0xFF7D7D7D);
+	result.pallettes[0].preprocessor = color_hexARGBTo01(0xFFDAB98F);
+	result.pallettes[0].string = color_hexARGBTo01(0xFFDAB98F);
 
-
-	result.witness.background = color_rgb255_to_01(6, 38, 38);
-	result.witness.backgroundVariation = color_rgb255_to_01(6, 55, 55);
-	result.witness.standard =  color_rgb255_to_01(194, 205, 187);
-	result.witness.variable = color_rgb255_to_01(139, 194, 186);
-	result.witness.bracket = color_rgb255_to_01(194, 205, 187);
-	result.witness.function = color_rgb255_to_01(194, 205, 187);
-	result.witness.keyword = color_rgb255_to_01(176, 200, 202);
-	result.witness.comment = color_rgb255_to_01(92, 175, 87);
-	result.witness.preprocessor = color_rgb255_to_01(118, 170, 138);
-	result.witness.string = color_rgb255_to_01(118, 170, 138);
+	result.pallettes[1].background = color_rgb255_to_01(6, 38, 38);
+	result.pallettes[1].backgroundVariation = color_rgb255_to_01(6, 55, 55);
+	result.pallettes[1].standard =  color_rgb255_to_01(194, 205, 187);
+	result.pallettes[1].variable = color_rgb255_to_01(139, 194, 186);
+	result.pallettes[1].bracket = color_rgb255_to_01(194, 205, 187);
+	result.pallettes[1].function = color_rgb255_to_01(194, 205, 187);
+	result.pallettes[1].keyword = color_rgb255_to_01(176, 200, 202);
+	result.pallettes[1].comment = color_rgb255_to_01(92, 175, 87);
+	result.pallettes[1].preprocessor = color_rgb255_to_01(118, 170, 138);
+	result.pallettes[1].string = color_rgb255_to_01(118, 170, 138);
 
 	// --- Mignight ---
-	result.midnight.background          = color_hexARGBTo01(0xFF0B0E14);
-    result.midnight.backgroundVariation = color_hexARGBTo01(0xFF1A1C23);
-    result.midnight.standard            = color_hexARGBTo01(0xFFABB2BF);
-    result.midnight.variable            = color_hexARGBTo01(0xFF00E5FF);
-    result.midnight.bracket             = color_hexARGBTo01(0xFFF170FF);
-    result.midnight.function            = color_hexARGBTo01(0xFF73D1FF);
-    result.midnight.keyword             = color_hexARGBTo01(0xFFFF9D00);
-    result.midnight.comment             = color_hexARGBTo01(0xFF5C6370);
-    result.midnight.preprocessor        = color_hexARGBTo01(0xFFC678DD);
-    result.midnight.string              = color_hexARGBTo01(0xFF98C379);
+	result.pallettes[2].background          = color_hexARGBTo01(0xFF0B0E14);
+    result.pallettes[2].backgroundVariation = color_hexARGBTo01(0xFF1A1C23);
+    result.pallettes[2].standard            = color_hexARGBTo01(0xFFABB2BF);
+    result.pallettes[2].variable            = color_hexARGBTo01(0xFF00E5FF);
+    result.pallettes[2].bracket             = color_hexARGBTo01(0xFFF170FF);
+    result.pallettes[2].function            = color_hexARGBTo01(0xFF73D1FF);
+    result.pallettes[2].keyword             = color_hexARGBTo01(0xFFFF9D00);
+    result.pallettes[2].comment             = color_hexARGBTo01(0xFF5C6370);
+    result.pallettes[2].preprocessor        = color_hexARGBTo01(0xFFC678DD);
+    result.pallettes[2].string              = color_hexARGBTo01(0xFF98C379);
 
     // --- Evergreen (Earthy / Low Strain) ---
-    result.evergreen.background          = color_hexARGBTo01(0xFF23272E);
-    result.evergreen.backgroundVariation = color_hexARGBTo01(0xFF2C313A);
-    result.evergreen.standard            = color_hexARGBTo01(0xFFDCD7BA);
-    result.evergreen.variable            = color_hexARGBTo01(0xFF957FB8);
-    result.evergreen.bracket             = color_hexARGBTo01(0xFFC0A36E);
-    result.evergreen.function            = color_hexARGBTo01(0xFF7E9CD8);
-    result.evergreen.keyword             = color_hexARGBTo01(0xFFFF5D62);
-    result.evergreen.comment             = color_hexARGBTo01(0xFF727169);
-    result.evergreen.preprocessor        = color_hexARGBTo01(0xFFE6C384);
-    result.evergreen.string              = color_hexARGBTo01(0xFF98BB6C);
+    result.pallettes[3].background          = color_hexARGBTo01(0xFF23272E);
+    result.pallettes[3].backgroundVariation = color_hexARGBTo01(0xFF2C313A);
+    result.pallettes[3].standard            = color_hexARGBTo01(0xFFDCD7BA);
+    result.pallettes[3].variable            = color_hexARGBTo01(0xFF957FB8);
+    result.pallettes[3].bracket             = color_hexARGBTo01(0xFFC0A36E);
+    result.pallettes[3].function            = color_hexARGBTo01(0xFF7E9CD8);
+    result.pallettes[3].keyword             = color_hexARGBTo01(0xFFFF5D62);
+    result.pallettes[3].comment             = color_hexARGBTo01(0xFF727169);
+    result.pallettes[3].preprocessor        = color_hexARGBTo01(0xFFE6C384);
+    result.pallettes[3].string              = color_hexARGBTo01(0xFF98BB6C);
 
     // --- Paperback (Light Theme / Warm) ---
-    result.paperback.background          = color_hexARGBTo01(0xFFF5F2E9);
-    result.paperback.backgroundVariation = color_hexARGBTo01(0xFFE8E4D8);
-    result.paperback.standard            = color_hexARGBTo01(0xFF37352F);
-    result.paperback.variable            = color_hexARGBTo01(0xFFD91E18);
-    result.paperback.bracket             = color_hexARGBTo01(0xFF5B391E);
-    result.paperback.function            = color_hexARGBTo01(0xFF006699);
-    result.paperback.keyword             = color_hexARGBTo01(0xFFAD4B00);
-    result.paperback.comment             = color_hexARGBTo01(0xFF90908A);
-    result.paperback.preprocessor        = color_hexARGBTo01(0xFF7A3E9D);
-    result.paperback.string              = color_hexARGBTo01(0xFF448C27);
+    result.pallettes[4].background          = color_hexARGBTo01(0xFFF5F2E9);
+    result.pallettes[4].backgroundVariation = color_hexARGBTo01(0xFFE8E4D8);
+    result.pallettes[4].standard            = color_hexARGBTo01(0xFF37352F);
+    result.pallettes[4].variable            = color_hexARGBTo01(0xFFD91E18);
+    result.pallettes[4].bracket             = color_hexARGBTo01(0xFF5B391E);
+    result.pallettes[4].function            = color_hexARGBTo01(0xFF006699);
+    result.pallettes[4].keyword             = color_hexARGBTo01(0xFFAD4B00);
+    result.pallettes[4].comment             = color_hexARGBTo01(0xFF90908A);
+    result.pallettes[4].preprocessor        = color_hexARGBTo01(0xFF7A3E9D);
+    result.pallettes[4].string              = color_hexARGBTo01(0xFF448C27);
 
     // --- Cold Iron (Industrial / Blue-Grey) ---
-    result.cold_iron.background          = color_hexARGBTo01(0xFF1E2127);
-    result.cold_iron.backgroundVariation = color_hexARGBTo01(0xFF282C34);
-    result.cold_iron.standard            = color_hexARGBTo01(0xFFD1D1D1);
-    result.cold_iron.variable            = color_hexARGBTo01(0xFF61AFEF);
-    result.cold_iron.bracket             = color_hexARGBTo01(0xFFAFB6C3);
-    result.cold_iron.function            = color_hexARGBTo01(0xFF4DB5BD);
-    result.cold_iron.keyword             = color_hexARGBTo01(0xFF9FA7BA);
-    result.cold_iron.comment             = color_hexARGBTo01(0xFF545862);
-    result.cold_iron.preprocessor        = color_hexARGBTo01(0xFFC678DD);
-    result.cold_iron.string              = color_hexARGBTo01(0xFF56B6C2);
+    result.pallettes[5].background          = color_hexARGBTo01(0xFF1E2127);
+    result.pallettes[5].backgroundVariation = color_hexARGBTo01(0xFF282C34);
+    result.pallettes[5].standard            = color_hexARGBTo01(0xFFD1D1D1);
+    result.pallettes[5].variable            = color_hexARGBTo01(0xFF61AFEF);
+    result.pallettes[5].bracket             = color_hexARGBTo01(0xFFAFB6C3);
+    result.pallettes[5].function            = color_hexARGBTo01(0xFF4DB5BD);
+    result.pallettes[5].keyword             = color_hexARGBTo01(0xFF9FA7BA);
+    result.pallettes[5].comment             = color_hexARGBTo01(0xFF545862);
+    result.pallettes[5].preprocessor        = color_hexARGBTo01(0xFFC678DD);
+    result.pallettes[5].string              = color_hexARGBTo01(0xFF56B6C2);
 
 
 	return result;

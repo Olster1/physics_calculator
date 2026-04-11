@@ -160,7 +160,12 @@ int main(int argc, char** argv) {
       }
       else if (e.type == SDL_EVENT_KEY_DOWN) {
         if (e.key.key == SDLK_RETURN || e.key.key == SDLK_KP_ENTER) {
+          if(gameState->mode == INTERACTION_MODE_DEFAULT) {
             gameState->enterPressed = true;
+          } else if(gameState->mode == INTERACTION_MODE_PICK_THEME) {
+            gameState->mode = INTERACTION_MODE_DEFAULT;
+
+          }
         }
         if(e.key.key == SDLK_V && (e.key.mod & SDL_KMOD_GUI)) {
           char *text = platform_getClipBoardText();
@@ -169,30 +174,54 @@ int main(int argc, char** argv) {
               platform_freeClipBoardText(text);
           }
         }
+        if(e.key.key == SDLK_P && (e.key.mod & SDL_KMOD_GUI)) {
+          gameState->mode = INTERACTION_MODE_PICK_THEME;
+        }
+        if(e.key.key == SDLK_ESCAPE) {
+          gameState->mode = INTERACTION_MODE_DEFAULT;
+        }
         if (e.key.key == SDLK_LEFT) {
-          stringBuffer_cursorLeft(&gameState->stringBuffer, 1);
+          if(gameState->mode == INTERACTION_MODE_DEFAULT) {
+            stringBuffer_cursorLeft(&gameState->stringBuffer, 1);
+          }
         }
         if (e.key.key == SDLK_RIGHT) {
-          stringBuffer_cursorRight(&gameState->stringBuffer, 1);
+          if(gameState->mode == INTERACTION_MODE_DEFAULT) {
+            stringBuffer_cursorRight(&gameState->stringBuffer, 1);
+          }
         }
         if (e.key.key == SDLK_DOWN) {
-          if(gameState->historyAt < gameState->bufferHistory.count) {
-            gameState->historyAt++;
+          if(gameState->mode == INTERACTION_MODE_DEFAULT) {
             if(gameState->historyAt < gameState->bufferHistory.count) {
-              clearStringBuffer(&gameState->stringBuffer);
-              stringBuffer_insertString(&gameState->stringBuffer, gameState->bufferHistory[gameState->historyAt]);
+              gameState->historyAt++;
+              if(gameState->historyAt < gameState->bufferHistory.count) {
+                clearStringBuffer(&gameState->stringBuffer);
+                stringBuffer_insertString(&gameState->stringBuffer, gameState->bufferHistory[gameState->historyAt]);
+              } else {
+                clearStringBuffer(&gameState->stringBuffer);
+              }
             } else {
-              clearStringBuffer(&gameState->stringBuffer);
+                clearStringBuffer(&gameState->stringBuffer);
             }
-          } else {
-              clearStringBuffer(&gameState->stringBuffer);
+          } else if(gameState->mode == INTERACTION_MODE_PICK_THEME) {
+            gameState->themeIndex++;
+            gameState->themeIndex %= arrayCount(gameState->colorPallettes.pallettes);
+            gameState->colorPallette = &gameState->colorPallettes.pallettes[gameState->themeIndex];
           }
         }
         if (e.key.key == SDLK_UP) {
-          if(gameState->historyAt > 0) {
-            gameState->historyAt--;
-            clearStringBuffer(&gameState->stringBuffer);
-            stringBuffer_insertString(&gameState->stringBuffer, gameState->bufferHistory[gameState->historyAt]);
+          if(gameState->mode == INTERACTION_MODE_DEFAULT) {
+            if(gameState->historyAt > 0) {
+              gameState->historyAt--;
+              clearStringBuffer(&gameState->stringBuffer);
+              stringBuffer_insertString(&gameState->stringBuffer, gameState->bufferHistory[gameState->historyAt]);
+            }
+          } else if(gameState->mode == INTERACTION_MODE_PICK_THEME) {
+            gameState->themeIndex--;
+            if(gameState->themeIndex < 0) {
+              gameState->themeIndex = 0;
+            }
+            gameState->colorPallette = &gameState->colorPallettes.pallettes[gameState->themeIndex];
           }
         }
         if (e.key.key == SDLK_BACKSPACE) {

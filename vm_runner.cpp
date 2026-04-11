@@ -35,7 +35,7 @@ void pushStackVariable(VmMachineState *state, char *name, VmOperation *values, i
     if(existingVar) {
         assert(existingVar->count == count);
         VmOperation *dec = (VmOperation *)(state->stackBase + existingVar->bytesOffset);
-        assert(dec->type == OP_CODE_VARIABLE_ASSIGN);
+        assert(dec->type == OP_CODE_NUMBER);
         easyPlatform_copyMemory(dec, values, sizeof(VmOperation)*count);
     } else {
          StackVariable *var = pushStruct(&globalPerFrameArena, StackVariable);
@@ -78,7 +78,7 @@ VmNumberType vmOp_getValue(VmMachineState *state, VmOperation op) {
         } else {
             assert(result.count == 1);
             VmOperation *dec = (VmOperation *)(state->stackBase + var->bytesOffset);
-            assert(dec->type == OP_CODE_VARIABLE_ASSIGN);
+            assert(dec->type == OP_CODE_NUMBER);
             result.value = dec->value_;
         }
     } else if(op.type == OP_CODE_NUMBER_ARRAY) {
@@ -175,7 +175,10 @@ bool runCode(VmMachineState *state, GameState *gameState, List<VmOperation> oper
                         b.string = "[";
                         for(int i = 0; i < value.count; ++i) {
                             double arrayValue = popAndGetValueNumber(state).value;
-                            b.string = easy_createString_printf(&globalPerVmRunLifetime, "%s%f, ", b.string, arrayValue);
+                            b.string = easy_createString_printf(&globalPerVmRunLifetime, "%s%f", b.string, arrayValue);
+                            if(i < value.count - 1) {
+                                b.string = easy_createString_printf(&globalPerVmRunLifetime, "%s, ", b.string);
+                            }
                         }
                         b.string = easy_createString_printf(&globalPerVmRunLifetime, "%s]", b.string);
                     } else {
@@ -254,6 +257,27 @@ bool runCode(VmMachineState *state, GameState *gameState, List<VmOperation> oper
                 vmMachine_push(state, newOp);
                 break;
             }
+            case OP_CODE_QUADRATIC: {
+                double c = popAndGetValueNumber(state).value;
+                double b = popAndGetValueNumber(state).value;
+                double a = popAndGetValueNumber(state).value;
+
+                double underSqrt = (b*b) - 4*a*c;
+
+                if(underSqrt < 0) {
+                    //NOTE: No solutions
+                }
+
+                double bottom = 2*a;
+                double resultA = (-b - sqrt(underSqrt)) / bottom;
+                double resultB = (-b + sqrt(underSqrt)) / bottom;
+
+                vmMachine_push(state, { .type = OP_CODE_NUMBER, .value_ = resultA });
+                vmMachine_push(state, { .type = OP_CODE_NUMBER, .value_ = resultB });
+                vmMachine_push(state, { .type = OP_CODE_NUMBER_ARRAY, .value_ = 2 });
+                break;
+            }
+
             // --- Trigonometry ---
             case OP_CODE_SIN: {
                 double value = popAndGetValueNumber(state).value;
@@ -431,13 +455,13 @@ bool runCode(VmMachineState *state, GameState *gameState, List<VmOperation> oper
 
                 if(value.count > 1) {
                     VmOperation *tempArray = pushArray(&globalPerFrameArena, value.count, VmOperation);
-                    for(int i = 0; i < value.count; ++i) {
-                        tempArray[i].type = OP_CODE_VARIABLE_ASSIGN;
+                    for(int i = value.count - 1; i >= 0; --i) {
+                        tempArray[i].type = OP_CODE_NUMBER;
                         tempArray[i].value_ = popAndGetValueNumber(state).value;
                     }
                     pushStackVariable(state, op->name, tempArray, value.count);
                 } else {
-                    VmOperation opcode = { .type = OP_CODE_VARIABLE_ASSIGN, .value_ = value.value };
+                    VmOperation opcode = { .type = OP_CODE_NUMBER, .value_ = value.value };
                     pushStackVariable(state, op->name, &opcode, 1);
                 }
 

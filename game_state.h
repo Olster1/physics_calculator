@@ -2,8 +2,16 @@ struct ImageFiles {
     Texture *whiteImage;
 };
 
+enum InteractionMode {
+    INTERACTION_MODE_DEFAULT,
+    INTERACTION_MODE_PICK_THEME,
+};
+
 struct GameState {
     bool initialized;
+
+    InteractionMode mode;
+    int themeIndex;
 
     float aspectRatioWindow_y_over_x;
     Renderer renderer;
