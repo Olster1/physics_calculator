@@ -36,14 +36,27 @@ struct AstExpression {
 struct ExpressionParser {
     AstExpression *top;
     EasyTokenizer tokenizer;
+    char *error;
+
+    void logError(char *errorIn) {
+        if(error) {
+            error = easy_createString_printf(&globalPerVmRunLifetime, "%s\n%s", error, errorIn);
+        } else {
+            error = easy_createString_printf(&globalPerVmRunLifetime, "%s", errorIn);
+        }
+    }
 };
 
-void consumeNextToken(ExpressionParser *parser, EasyTokenType typeAssumed) {
+bool consumeNextToken(ExpressionParser *parser, EasyTokenType typeAssumed) {
     EasyToken t = lexGetNextToken(&parser->tokenizer);
+    bool wasSuccess = true;
     if(t.type != typeAssumed) {
-        assert(false);
+        // assert(false);
         //NOTE: Emit error
+        parser->logError(easy_createString_printf(&globalPerVmRunLifetime, "Expected %s, got %s\n", LexTokenTypeStrings[typeAssumed], LexTokenTypeStrings[t.type]));
+        wasSuccess = false;
     }
+    return wasSuccess;
 }
 
 AstExpression *parseExpression(ExpressionParser *parser, int precedence);
@@ -64,10 +77,11 @@ AstExpression *parsePrefixExpression(ExpressionParser *parser, EasyToken t) {
             prefix->type = AST_EXPRESSION_TYPE_PREFIX;
             prefix->arguments = List<AstExpression *>::init(&globalPerFrameArena);
 
-            while(lexSeeNextToken(&parser->tokenizer).type != TOKEN_CLOSE_SQUARE_BRACKET) {
+            bool parsing = true;
+            while(parsing && lexSeeNextToken(&parser->tokenizer).type != TOKEN_CLOSE_SQUARE_BRACKET) {
                 prefix->arguments.push(parseExpression(parser, 0));
                 if(lexSeeNextToken(&parser->tokenizer).type != TOKEN_CLOSE_SQUARE_BRACKET) {
-                    consumeNextToken(parser, TOKEN_COMMA);
+                    parsing = consumeNextToken(parser, TOKEN_COMMA);
                 }
             }
 
@@ -157,12 +171,13 @@ AstExpression *parseInfixExpression(ExpressionParser *parser, EasyToken t, AstEx
             infix->left = left;
             infix->arguments = List<AstExpression *>::init(&globalPerFrameArena);
 
-            while(lexSeeNextToken(&parser->tokenizer).type != TOKEN_CLOSE_PARENTHESIS) {
+            bool parsing = true;
+            while(parsing && lexSeeNextToken(&parser->tokenizer).type != TOKEN_CLOSE_PARENTHESIS) {
                 AstExpression *arg  = parseExpression(parser, 0);
                 infix->arguments.push(arg);
 
                 if(lexSeeNextToken(&parser->tokenizer).type != TOKEN_CLOSE_PARENTHESIS) {
-                    consumeNextToken(parser, TOKEN_COMMA);
+                    parsing = consumeNextToken(parser, TOKEN_COMMA);
                 }
             }
             consumeNextToken(parser, TOKEN_CLOSE_PARENTHESIS);
@@ -184,14 +199,24 @@ AstExpression *parseExpression(ExpressionParser *parser, int precedence) {
     EasyToken t = lexGetNextToken(&parser->tokenizer);
 
     AstExpression *left = parsePrefixExpression(parser, t);
-    assert(left);
-    //TODO: Emit error about expecting something else
 
-    while(precedence < getPrecedenceOfNextToken(parser)) {
-        t = lexGetNextToken(&parser->tokenizer); //NOTE: Consume the token we just saw with the above function getPrecedenceOfNextToken
-        left = parseInfixExpression(parser, t, left);
-        assert(left);
+
+
+    if(left) {
+
+        while(precedence < getPrecedenceOfNextToken(parser)) {
+            t = lexGetNextToken(&parser->tokenizer); //NOTE: Consume the token we just saw with the above function getPrecedenceOfNextToken
+            left = parseInfixExpression(parser, t, left);
+            if(!left) {
+                parser->logError("Expected an infix token");
+                // assert(left);
+            }
+        }
+    } else {
+        //NOTE: Emit error about expecting something else
+        parser->logError("Expected a prefix token");
     }
+
     return left;
 }
 

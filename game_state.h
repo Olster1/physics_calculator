@@ -17,6 +17,7 @@ struct GameState {
     Renderer renderer;
 
     float2 scrollWheelDelta;
+    char *currentCompilerError;
 
     List<VmOperation> operations;
     int historyAt;
@@ -62,7 +63,10 @@ void clearCalculatorBuffer(GameState *gameState) {
     gameState->operations.clear();
     gameState->calculatorLineCount = 0;
     gameState->startUseRadians = gameState->useRadians;
-
+    gameState->settingsToSave.startUseRadians = gameState->useRadians;
+    gameState->settingsToSave.useRadians = gameState->useRadians;
     //NOTE: This string is stored int the per clear session arena so is free now
     gameState->codeToRun = "";
+
+    saveSettingsFile(&gameState->settingsToSave);
 }

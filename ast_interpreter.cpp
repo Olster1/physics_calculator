@@ -44,7 +44,8 @@ struct InterpreterFunction{
 };
 
 struct CompilerState {
-    char *error;
+    ExpressionParser parser;
+
     AstVariable *variables[MAX_VARIABLE_MAP_SIZE]; //NOTE: Nodes pushed onto per frame arena
 
     Map<char *, InterpreterFunction> functionCalls;
@@ -55,6 +56,8 @@ struct CompilerState {
 };
 
 void initCompiler(CompilerState *state) {
+    state->parser.error = 0;
+
     state->functionCalls = Map<char *, InterpreterFunction>::init(&globalPerFrameArena);
 
     state->functionCalls.insert("quad", InterpreterFunction::init({ .type = OP_CODE_QUADRATIC }));
@@ -188,7 +191,7 @@ void interpretCallExpression(CompilerState *state, AstExpression *expression) {
 
     InterpreterFunction *op = state->functionCalls.get(name);
     if(!op) {
-        state->error = "Function not declared";
+        state->parser.error = "Function not declared";
     } else {
         state->operations->push(op->operation);
     }
@@ -274,7 +277,7 @@ void interpretExpression(CompilerState *state, AstExpression *expression) {
             AstVariable *variable = getCompilerVariable(state, name);
 
             if(!variable) {
-                state->error = "Variable not declared";
+                state->parser.error = "Variable not declared";
             } else {
                 VmOperation op = { .type = OP_CODE_VARIABLE_REFERENCE, .name = name };
                 state->operations->push(op);

@@ -3,4 +3,7 @@ struct SettingsToSave {
     int windowY;
     int windowPosX;
     int windowPosY;
+    int themeIndex;
+    int useRadians;
+    int startUseRadians;
 };

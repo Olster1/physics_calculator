@@ -10,7 +10,7 @@ void runUnitTest(UnitTestResults *results,  char *code, double answer) {
     refreshVmMemoryArena();
     gameState->operations.clear();
 
-    bool error = compileToByteCode(code, &gameState->operations);
+    char *error = compileToByteCode(code, &gameState->operations);
     VmMachineState machineState  = initVmMachineState();
     runCode(&machineState, gameState, gameState->operations, true);
 

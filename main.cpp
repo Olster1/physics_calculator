@@ -55,8 +55,13 @@ Rect2f renderTextAsTokens(GameState *gameState, char *string, float2 at, float2 
 }
 
 void runCalculator(GameState *gameState) {
-    //TODO: Memory leak if we clear the whole calculator, use another lifetime arena
+    refreshVmMemoryArena();
+    gameState->operations.clear();
+    gameState->calculatorLineCount = 0;
+
     char *codeToRun = easy_createString_printf(&globalPerClearSessionArena, "%s%s;",  gameState->codeToRun, gameState->stringBuffer.string);
+
+    gameState->currentCompilerError = 0;
 
     int numberOfLines = 0;
     {
@@ -86,22 +91,20 @@ void runCalculator(GameState *gameState) {
         }
     }
 
+    char *error = compileToByteCode(codeToRun, &gameState->operations);
 
-    bool error = compileToByteCode(codeToRun, &gameState->operations);
-
-    bool clear = false;
     if(!error) {
         VmMachineState machineState  = initVmMachineState(gameState->startUseRadians);
-        clear = runCode(&machineState, gameState, gameState->operations);
-    }
-
-    if(!error) {
-        //NOTE: Keep the buffer the user wrote if there was an error parsing it
-        clearStringBuffer(&gameState->stringBuffer);
-    }
-
-    if(!error && !clear) {
+        runCode(&machineState, gameState, gameState->operations);
+        gameState->settingsToSave.useRadians = gameState->useRadians;
+        saveSettingsFile(&gameState->settingsToSave);
         gameState->codeToRun = codeToRun;
+        //NOTE: Add string to history
+        gameState->bufferHistory.push(easy_createString_printf(&globalLongTermArena, "%s", gameState->stringBuffer.string));
+        gameState->historyAt = gameState->bufferHistory.count;
+        clearStringBuffer(&gameState->stringBuffer);
+    } else {
+        gameState->currentCompilerError = easy_createString_printf(&globalPerVmRunLifetime, "%s", error);
     }
 }
 
@@ -127,13 +130,6 @@ void updateGame(GameState *gameState) {
             clearCalculatorBuffer(gameState);
             clearStringBuffer(&gameState->stringBuffer);
         } else {
-            refreshVmMemoryArena();
-            gameState->operations.clear();
-            gameState->calculatorLineCount = 0;
-
-            //NOTE: Add string to history
-            gameState->bufferHistory.push(easy_createString_printf(&globalLongTermArena, "%s", gameState->stringBuffer.string));
-            gameState->historyAt = gameState->bufferHistory.count;
             runCalculator(gameState);
         }
 
@@ -156,7 +152,6 @@ void updateGame(GameState *gameState) {
         }
     }
 
-
     //NOTE: Draw radians or degrees mode
     {
         float scale = 0.8f*BODY_FONT_SCALE;
@@ -169,6 +164,9 @@ void updateGame(GameState *gameState) {
         at.x -= get_scale_rect2f(bounds).x + 2;
         renderText(&gameState->renderer, &gameState->mainFont, angleMode, at, scale, gameState->colorPallette->standard);
     }
+
+
+
 
 
     float startX = -0.5f*plane.x - gameState->bufferOffset.x;
@@ -194,6 +192,14 @@ void updateGame(GameState *gameState) {
         if(get_scale_rect2f(dim).x > maxBufferSize.x) {
             maxBufferSize.x = get_scale_rect2f(dim).x;
         }
+    }
+
+    //NOTE: Render the errors
+    if(gameState->currentCompilerError) {
+        pushRenderTexture(&gameState->renderer, make_transformX_float2(make_float2(0, -0.5f*plane.y + 2*lineHeight), make_float2(plane.x, lineHeight)), gameState->imageFiles.whiteImage, gameState->colorPallette->backgroundVariation);
+        float sideOffset = 1;
+        float2 at = make_float2(-0.5f*plane.x + sideOffset, -0.5f*plane.y + 2*lineHeight);
+        renderTextAsTokens(gameState, gameState->currentCompilerError, at, plane, 0.5f);
     }
 
     if(gameState->mode == INTERACTION_MODE_PICK_THEME) {

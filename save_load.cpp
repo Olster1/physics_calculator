@@ -19,6 +19,15 @@ void saveSettingsFile(SettingsToSave *settings) {
     strToWrite = easy_createString_printf(&globalPerFrameArena, "{\"windowPos\": %d %d}\n", settings->windowPosX, settings->windowPosY);
     offset = platformWriteFile(&json, strToWrite, easyString_getSizeInBytes_utf8(strToWrite), offset);
 
+    strToWrite = easy_createString_printf(&globalPerFrameArena, "{\"themeIndex\": %d}\n", settings->themeIndex);
+    offset = platformWriteFile(&json, strToWrite, easyString_getSizeInBytes_utf8(strToWrite), offset);
+
+    strToWrite = easy_createString_printf(&globalPerFrameArena, "{\"useRadians\": %d}\n", settings->useRadians);
+    offset = platformWriteFile(&json, strToWrite, easyString_getSizeInBytes_utf8(strToWrite), offset);
+
+    strToWrite = easy_createString_printf(&globalPerFrameArena, "{\"startUseRadians\": %d}\n", settings->startUseRadians);
+    offset = platformWriteFile(&json, strToWrite, easyString_getSizeInBytes_utf8(strToWrite), offset);
+
     platformEndFile(json);
 }
 
@@ -60,6 +69,30 @@ LoadSettingsFileResult loadSettingsFile(SettingsToSave *settingsToSave) {
                     assert(t.type == TOKEN_INTEGER);
                     if(t.type == TOKEN_INTEGER) {
                         result.settingsToSave.windowY = t.intVal;
+                    }
+                } else if(easyString_stringsMatch_null_and_count("themeIndex", t.at, t.size)) {
+                    t = lexGetNextToken(&tokenizer);
+                    assert(t.type == TOKEN_COLON);
+                    t = lexGetNextToken(&tokenizer);
+                    assert(t.type == TOKEN_INTEGER);
+                    if(t.type == TOKEN_INTEGER) {
+                        result.settingsToSave.themeIndex = t.intVal;
+                    }
+                } else if(easyString_stringsMatch_null_and_count("useRadians", t.at, t.size)) {
+                    t = lexGetNextToken(&tokenizer);
+                    assert(t.type == TOKEN_COLON);
+                    t = lexGetNextToken(&tokenizer);
+                    assert(t.type == TOKEN_INTEGER);
+                    if(t.type == TOKEN_INTEGER) {
+                        result.settingsToSave.useRadians = t.intVal;
+                    }
+                } else if(easyString_stringsMatch_null_and_count("startUseRadians", t.at, t.size)) {
+                    t = lexGetNextToken(&tokenizer);
+                    assert(t.type == TOKEN_COLON);
+                    t = lexGetNextToken(&tokenizer);
+                    assert(t.type == TOKEN_INTEGER);
+                    if(t.type == TOKEN_INTEGER) {
+                        result.settingsToSave.startUseRadians = t.intVal;
                     }
                 } else if(easyString_stringsMatch_null_and_count("windowPos", t.at, t.size)) {
                     t = lexGetNextToken(&tokenizer);

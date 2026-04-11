@@ -170,6 +170,7 @@ int main(int argc, char** argv) {
         if(e.key.key == SDLK_V && (e.key.mod & SDL_KMOD_GUI)) {
           char *text = platform_getClipBoardText();
           stringBuffer_insertString(&gameState->stringBuffer, text);
+          gameState->currentCompilerError = 0;
           if(text) {
               platform_freeClipBoardText(text);
           }
@@ -197,6 +198,7 @@ int main(int argc, char** argv) {
               if(gameState->historyAt < gameState->bufferHistory.count) {
                 clearStringBuffer(&gameState->stringBuffer);
                 stringBuffer_insertString(&gameState->stringBuffer, gameState->bufferHistory[gameState->historyAt]);
+                gameState->currentCompilerError = 0;
               } else {
                 clearStringBuffer(&gameState->stringBuffer);
               }
@@ -207,6 +209,8 @@ int main(int argc, char** argv) {
             gameState->themeIndex++;
             gameState->themeIndex %= arrayCount(gameState->colorPallettes.pallettes);
             gameState->colorPallette = &gameState->colorPallettes.pallettes[gameState->themeIndex];
+            gameState->settingsToSave.themeIndex = gameState->themeIndex;
+            saveSettingsFile(&gameState->settingsToSave);
           }
         }
         if (e.key.key == SDLK_UP) {
@@ -215,6 +219,7 @@ int main(int argc, char** argv) {
               gameState->historyAt--;
               clearStringBuffer(&gameState->stringBuffer);
               stringBuffer_insertString(&gameState->stringBuffer, gameState->bufferHistory[gameState->historyAt]);
+              gameState->currentCompilerError = 0;
             }
           } else if(gameState->mode == INTERACTION_MODE_PICK_THEME) {
             gameState->themeIndex--;
@@ -222,10 +227,15 @@ int main(int argc, char** argv) {
               gameState->themeIndex = 0;
             }
             gameState->colorPallette = &gameState->colorPallettes.pallettes[gameState->themeIndex];
+            gameState->settingsToSave.themeIndex = gameState->themeIndex;
+            saveSettingsFile(&gameState->settingsToSave);
           }
         }
         if (e.key.key == SDLK_BACKSPACE) {
-          stringBuffer_removeCharacter(&gameState->stringBuffer);
+          if(gameState->mode == INTERACTION_MODE_DEFAULT) {
+            gameState->currentCompilerError = 0;
+            stringBuffer_removeCharacter(&gameState->stringBuffer);
+          }
         }
       }
 
@@ -247,6 +257,7 @@ int main(int argc, char** argv) {
         saveSettingsFile(&gameState->settingsToSave);
       } else if (e.type == SDL_EVENT_TEXT_INPUT) {
         stringBuffer_insertString(&gameState->stringBuffer, (char *)e.text.text);
+        gameState->currentCompilerError = 0;
       }
 
     }

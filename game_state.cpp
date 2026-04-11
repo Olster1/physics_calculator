@@ -11,17 +11,19 @@ void initGameState(GameState *gameState) {
     gameState->settingsToSave = loadResult.settingsToSave;
     platform_setWindowSize(gameState->settingsToSave.windowX, gameState->settingsToSave.windowY);
     platform_setWindowPos(gameState->settingsToSave.windowPosX, gameState->settingsToSave.windowPosY);
+    gameState->themeIndex = gameState->settingsToSave.themeIndex;
+    gameState->startUseRadians = gameState->settingsToSave.startUseRadians;
+    gameState->useRadians = gameState->settingsToSave.useRadians;
 
     gameState->operations = List<VmOperation>::init(&globalLongTermArena);
     gameState->codeToRun = "";
     gameState->colorPallettes = init_color_palettes();
-    gameState->colorPallette = &gameState->colorPallettes.pallettes [0];
+    gameState->colorPallette = &gameState->colorPallettes.pallettes [gameState->themeIndex];
     stringBuffer_init(&gameState->stringBuffer);
-    gameState->useRadians = true;
     // DEBUG_MapTests(&globalPerFrameArena);
     // runLanguageUnitTests(gameState);
     gameState->bufferHistory = List<char *>::init(&globalLongTermArena);
-    gameState->startUseRadians = gameState->useRadians = true;
+
 }
 
 GameState *allocateGameState() {
