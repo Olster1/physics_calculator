@@ -22,7 +22,7 @@ bool lexMatchString(char *A, char *B) {
     while(*A && *B) {
         res = (*A++ == *B++);
         if(!res) break;
-    } 
+    }
 
     if((!A[0] && B[0]) || (A[0] && !B[0])) {
         res = false;
@@ -103,13 +103,13 @@ typedef struct {
     char *at;
 
     bool isKeyword;
-    bool isType; 
-    
+    bool isType;
+
     EasyTokenType type;
     int size;
-    
+
     u32 lineNumber;
-    
+
     union {
         struct {
             int intVal;
@@ -131,30 +131,30 @@ static inline bool isNewlineTokenWindowsType(EasyToken token) {
 
 char *lexEatWhiteSpace(char *at) {
     while(*at == ' ' || *at == '\r' || *at == '\n' || *at == '\t') {
-        at++;		
+        at++;
     }
     return at;
 }
 
 bool lexIsWhiteSpace(char *at) {
     if(*at == ' ' || *at == '\r' || *at == '\n' || *at == '\t') {
-        return true;		
+        return true;
     }
     return false;
 }
 
 char *lexEatWhiteSpaceExceptNewLine(char *at) {
     while(*at == ' ' || *at == '\t') {
-        at++;		
+        at++;
     }
     return at;
 }
 
 char *lexEatSpaces(char *at) {
     while(*at == ' ') {
-        at++;		
+        at++;
     }
-    return at;	
+    return at;
 }
 
 bool lexIsNewLine(char value) {
@@ -167,7 +167,7 @@ EasyToken lexInitToken(EasyTokenType type, char *at, int size, u32 lineNumber) {
     result.at = at;
     result.size = size;
     result.lineNumber = lineNumber;
-    
+
     return result;
 }
 
@@ -210,13 +210,13 @@ int lexStringLength(char *str) {
 
 void lexAdvancePtrWithToken(EasyTokenizer *tokenizer, EasyToken token) {
     tokenizer->src = (token.at + token.size);
-    if(token.type == TOKEN_STRING) { tokenizer->src++; } //to move past the last quote 
+    if(token.type == TOKEN_STRING) { tokenizer->src++; } //to move past the last quote
 }
 
 void DEBUG_lexPrintToken(EasyToken *token) {
     char buffer[256] = {};
     char *a = DEBUG_lexNullTerminateBuffer(buffer, token->at, token->size);
-    
+
     printf("%s %s", a, LexTokenTypeStrings[token->type]);
 }
 
@@ -225,7 +225,7 @@ EasyToken lexGetToken_(EasyTokenizer *tokenizer, bool advanceWithToken) {
     int *lineNumber = &tokenizer->lineNumber;
     EasyToken token = lexInitToken(TOKEN_UNINITIALISED, at, 1, *lineNumber);
     if(tokenizer->eatWhiteSpace) { at = lexEatWhiteSpace(at); }
-    
+
     switch(*at) {
         case ' ': {
             token = lexInitToken(TOKEN_SPACE, at, 1, *lineNumber);
@@ -244,7 +244,7 @@ EasyToken lexGetToken_(EasyTokenizer *tokenizer, bool advanceWithToken) {
             at++;
         } break;
         case '.': {
-            token = lexInitToken(TOKEN_PERIOD, at, 1, *lineNumber); 
+            token = lexInitToken(TOKEN_PERIOD, at, 1, *lineNumber);
             at++;
         } break;
         case '\0': {
@@ -256,7 +256,7 @@ EasyToken lexGetToken_(EasyTokenizer *tokenizer, bool advanceWithToken) {
             token = lexInitToken(TOKEN_COMMA, at, 1, *lineNumber);
             at++;
         } break;
-        case '\r': 
+        case '\r':
         case '\n': {
             token = lexInitToken(TOKEN_NEWLINE, at, 1, *lineNumber);
             if(at[0] == '\r' && at[1] == '\n') {
@@ -359,7 +359,7 @@ EasyToken lexGetToken_(EasyTokenizer *tokenizer, bool advanceWithToken) {
 
             token.size = (at - token.at);
         } break;
-        case '\'': 
+        case '\'':
         case '\"': {
             token = lexInitToken(TOKEN_STRING, at + 1, 1, *lineNumber);
             char endOfString = (*at == '\"') ? '\"' : '\'';
@@ -386,7 +386,7 @@ EasyToken lexGetToken_(EasyTokenizer *tokenizer, bool advanceWithToken) {
                 } else if(lexMatchString(at, "/*")) {
                     token.type = TOKEN_COMMENT;
                     at += 2;
-                    
+
                     while(*at && !lexMatchString(at, "*/")) {
                         if(lexIsNewLine(*at)) {
                             *lineNumber = *lineNumber + 1;
@@ -416,10 +416,10 @@ EasyToken lexGetToken_(EasyTokenizer *tokenizer, bool advanceWithToken) {
                 }
                 token.size = at - token.at;
                 token.isKeyword = false;
-                
-                
+
+
             } else if(lexIsNumeric(*at)) {
-              
+
                 token = lexInitToken(TOKEN_INTEGER, at, 1, *lineNumber);
                 int numberOfDecimal = 0;
                 bool hadENotation = false;
@@ -433,35 +433,35 @@ EasyToken lexGetToken_(EasyTokenizer *tokenizer, bool advanceWithToken) {
                             break;
                         }
                     }
-                    
+
                     if(*at == 'E' || *at == 'e') {
                         assert(!hadENotation);
                         token.type = TOKEN_FLOAT;
                         char *a = nullTerminateArena(token.at, (at - token.at), &globalPerFrameArena);
                         token.floatVal = atof(a);
-                        
+
                         char *beginExponent = ++at;
                         int exponentSize = 0;
                         float isNegative = 1;
-                        
+
                         while(*at && lexIsNumeric(*at)) {
                             exponentSize++;
                             at++;
                         }
-                        
+
                         char *exponentStr = nullTerminateArena(beginExponent, exponentSize, &globalPerFrameArena);
                         int exponent = atoi(exponentStr);
-                        
+
                         token.floatVal = token.floatVal*powf(10, exponent);
-                        
+
                         hadENotation = true;
                     } else {
                         at++;
                     }
-                    
-                    
+
+
                 }
-                
+
                 if(!hadENotation) {
                     char *a = nullTerminateArena(token.at, (at - token.at), &globalPerFrameArena);
                     if(numberOfDecimal > 0) {
@@ -471,18 +471,18 @@ EasyToken lexGetToken_(EasyTokenizer *tokenizer, bool advanceWithToken) {
                         token.intVal = atoi(a);
                     }
                 }
-                
+
                 token.size = at - token.at;
             } else {
                 at++;
             }
         }
     }
-    
-    assert(tokenizer->src != at); // this doesn't 
+
+    assert(tokenizer->src != at); // this doesn't
     assert(token.at);
     if(advanceWithToken) { tokenizer->src = at; }
-    
+
     return token;
 }
 

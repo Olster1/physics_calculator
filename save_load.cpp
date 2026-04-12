@@ -31,6 +31,9 @@ void saveSettingsFile(SettingsToSave *settings) {
     strToWrite = easy_createString_printf(&globalPerFrameArena, "{\"code\": \"%s\"}\n", settings->code);
     offset = platformWriteFile(&json, strToWrite, easyString_getSizeInBytes_utf8(strToWrite), offset);
 
+    strToWrite = easy_createString_printf(&globalPerFrameArena, "{\"codeCheckSum\": %u}\n", get_crc32(settings->code, easyString_getSizeInBytes_utf8(settings->code)));
+    offset = platformWriteFile(&json, strToWrite, easyString_getSizeInBytes_utf8(strToWrite), offset);
+
     platformEndFile(json);
 }
 
@@ -55,6 +58,7 @@ LoadSettingsFileResult loadSettingsFile(SettingsToSave *settingsToSave) {
         bool gotStartRadians = false;
         bool gotCode = false;
         bool parsing = true;
+        u32 checkSum = 0;
         while(parsing) {
             EasyToken t = lexGetNextToken(&tokenizer);
 
@@ -92,7 +96,15 @@ LoadSettingsFileResult loadSettingsFile(SettingsToSave *settingsToSave) {
                     assert(t.type == TOKEN_STRING);
                     if(t.type == TOKEN_STRING) {
                         gotCode = true;
-                        result.settingsToSave.code = nullTerminateArena(t.at, t.size, &globalPerVmRunLifetime);
+                        result.settingsToSave.code = nullTerminateArena(t.at, t.size, &globalPerClearSessionArena);
+                    }
+                 } else if(easyString_stringsMatch_null_and_count("codeCheckSum", t.at, t.size)) {
+                    t = lexGetNextToken(&tokenizer);
+                    assert(t.type == TOKEN_COLON);
+                    t = lexGetNextToken(&tokenizer);
+                    assert(t.type == TOKEN_INTEGER);
+                    if(t.type == TOKEN_INTEGER) {
+                        checkSum = (u32)t.intVal;
                     }
                 } else if(easyString_stringsMatch_null_and_count("useRadians", t.at, t.size)) {
                     t = lexGetNextToken(&tokenizer);
@@ -125,6 +137,16 @@ LoadSettingsFileResult loadSettingsFile(SettingsToSave *settingsToSave) {
                         result.settingsToSave.windowPosY = t.intVal;
                     }
                  }
+            }
+        }
+
+        if(gotCode) {
+            u32 testCheckSum = get_crc32(result.settingsToSave.code, easyString_getSizeInBytes_utf8(result.settingsToSave.code));
+            if(testCheckSum != checkSum) {
+                //NOTE: Don't set the code
+                gotCode = false;
+                result.settingsToSave.code = "";
+
             }
         }
 
