@@ -54,61 +54,6 @@ Rect2f renderTextAsTokens(GameState *gameState, char *string, float2 at, float2 
     return totalBounds;
 }
 
-void runCalculator(GameState *gameState) {
-    refreshVmMemoryArena();
-    gameState->operations.clear();
-    gameState->calculatorLineCount = 0;
-
-    char *codeToRun = easy_createString_printf(&globalPerClearSessionArena, "%s%s;",  gameState->codeToRun, gameState->stringBuffer.string);
-
-    gameState->currentCompilerError = 0;
-
-    int numberOfLines = 0;
-    {
-        //NODE: Run through all code to find number of new lines
-        char *str = codeToRun;
-        while(*str) {
-            if(*str == ';') {
-                numberOfLines++;
-            }
-            str++;
-        }
-
-        //NOTE: Allocate the array
-        gameState->maxCalculatorLineCount = numberOfLines;
-        gameState->calculatorLines = pushArray(&globalPerVmRunLifetime, numberOfLines, CalculatorLine);
-
-        //NOTE: Loop through again and set the strings
-        char *start = codeToRun;
-        str = codeToRun;
-        int lineAt = 0;
-        while(*str) {
-            if(*str == ';') {
-                gameState->calculatorLines[lineAt++].in = nullTerminateArena(start, (int)(str - start), &globalPerVmRunLifetime);
-                start = str + 1;
-            }
-            str++;
-        }
-    }
-
-    char *error = compileToByteCode(codeToRun, &gameState->operations);
-
-    if(!error) {
-        VmMachineState machineState  = initVmMachineState(gameState->startUseRadians);
-        runCode(&machineState, gameState, gameState->operations);
-        gameState->settingsToSave.useRadians = gameState->useRadians;
-        saveSettingsFile(&gameState->settingsToSave);
-        gameState->codeToRun = codeToRun;
-        //NOTE: Add string to history
-        gameState->bufferHistory.push(easy_createString_printf(&globalLongTermArena, "%s", gameState->stringBuffer.string));
-        gameState->historyAt = gameState->bufferHistory.count;
-        clearStringBuffer(&gameState->stringBuffer);
-    } else {
-        gameState->currentCompilerError = easy_createString_printf(&globalPerVmRunLifetime, "%s", error);
-    }
-}
-
-
 void updateGame(GameState *gameState) {
     assert(gameState->initialized);
 
@@ -157,7 +102,7 @@ void updateGame(GameState *gameState) {
         float scale = 0.8f*BODY_FONT_SCALE;
         float2 at = make_float2(0.5*plane.x, 0.5*plane.y - scale*gameState->mainFont.fontHeight);
         char *angleMode = "rad";
-        if(!gameState->useRadians) {
+        if(!gameState->settingsToSave.useRadians) {
             angleMode = "deg";
         }
         Rect2f bounds = renderText(&gameState->renderer, &gameState->mainFont, angleMode, at, scale, gameState->colorPallette->standard, false);
@@ -220,7 +165,7 @@ void updateGame(GameState *gameState) {
             Rect2f dim = renderText_centered(&gameState->renderer, &gameState->mainFont, name, at, scale, gameState->colorPallette->standard, false);
 
             float4 color = gameState->colorPallette->backgroundVariation;
-            if(i == gameState->themeIndex) {
+            if(i == gameState->settingsToSave.themeIndex) {
                 color = gameState->colorPallette->preprocessor;
             }
 

@@ -11,7 +11,6 @@ struct GameState {
     bool initialized;
 
     InteractionMode mode;
-    int themeIndex;
 
     float aspectRatioWindow_y_over_x;
     Renderer renderer;
@@ -34,7 +33,6 @@ struct GameState {
     int calculatorLineCount;
     int maxCalculatorLineCount;
     CalculatorLine *calculatorLines; //NOTE: Lives on per vm run arena
-    char *codeToRun;
 
     SettingsToSave settingsToSave;
 
@@ -42,8 +40,6 @@ struct GameState {
     float2 mouseP_01;
     MouseKeyState mouseBtn[MOUSE_BUTTON_TYPE_COUNT];
 
-    bool useRadians;
-    bool startUseRadians; //NOTE: This is to keep it deterministic, since we run all the code each time, the useRadians is really just a visual to the user but doesn't actually control the value
 
     float dt;
     Font mainFont;
@@ -62,11 +58,9 @@ void clearCalculatorBuffer(GameState *gameState) {
     refreshPerClearSessionArena();
     gameState->operations.clear();
     gameState->calculatorLineCount = 0;
-    gameState->startUseRadians = gameState->useRadians;
-    gameState->settingsToSave.startUseRadians = gameState->useRadians;
-    gameState->settingsToSave.useRadians = gameState->useRadians;
+    gameState->settingsToSave.startUseRadians = gameState->settingsToSave.useRadians;
     //NOTE: This string is stored int the per clear session arena so is free now
-    gameState->codeToRun = "";
+    gameState->settingsToSave.code = "";
 
     saveSettingsFile(&gameState->settingsToSave);
 }

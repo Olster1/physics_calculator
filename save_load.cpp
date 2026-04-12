@@ -28,6 +28,9 @@ void saveSettingsFile(SettingsToSave *settings) {
     strToWrite = easy_createString_printf(&globalPerFrameArena, "{\"startUseRadians\": %d}\n", settings->startUseRadians);
     offset = platformWriteFile(&json, strToWrite, easyString_getSizeInBytes_utf8(strToWrite), offset);
 
+    strToWrite = easy_createString_printf(&globalPerFrameArena, "{\"code\": \"%s\"}\n", settings->code);
+    offset = platformWriteFile(&json, strToWrite, easyString_getSizeInBytes_utf8(strToWrite), offset);
+
     platformEndFile(json);
 }
 
@@ -37,17 +40,20 @@ struct LoadSettingsFileResult {
 
 LoadSettingsFileResult loadSettingsFile(SettingsToSave *settingsToSave) {
     LoadSettingsFileResult result = {};
+    result.settingsToSave.code = "";
     result.settingsToSave.windowX = global_default_window_size_x;
     result.settingsToSave.windowY = global_default_window_size_y;
     char *filePath = save_getSettingsFileName(&globalPerFrameArena);
     if(platformDoesFileExist(filePath)) {
         FileContents contents = platformReadEntireFile(&globalPerFrameArena, (char *)filePath, true);
+        printf("%s\n", filePath);
         assert(contents.valid);
         assert(contents.fileSize > 0);
         assert(contents.memory);
 
         EasyTokenizer tokenizer = lexBeginParsing(contents.memory, EASY_LEX_OPTION_EAT_WHITE_SPACE);
-
+        bool gotStartRadians = false;
+        bool gotCode = false;
         bool parsing = true;
         while(parsing) {
             EasyToken t = lexGetNextToken(&tokenizer);
@@ -78,6 +84,16 @@ LoadSettingsFileResult loadSettingsFile(SettingsToSave *settingsToSave) {
                     if(t.type == TOKEN_INTEGER) {
                         result.settingsToSave.themeIndex = t.intVal;
                     }
+                } else if(easyString_stringsMatch_null_and_count("code", t.at, t.size)) {
+
+                    t = lexGetNextToken(&tokenizer);
+                    assert(t.type == TOKEN_COLON);
+                    t = lexGetNextToken(&tokenizer);
+                    assert(t.type == TOKEN_STRING);
+                    if(t.type == TOKEN_STRING) {
+                        gotCode = true;
+                        result.settingsToSave.code = nullTerminateArena(t.at, t.size, &globalPerVmRunLifetime);
+                    }
                 } else if(easyString_stringsMatch_null_and_count("useRadians", t.at, t.size)) {
                     t = lexGetNextToken(&tokenizer);
                     assert(t.type == TOKEN_COLON);
@@ -87,6 +103,7 @@ LoadSettingsFileResult loadSettingsFile(SettingsToSave *settingsToSave) {
                         result.settingsToSave.useRadians = t.intVal;
                     }
                 } else if(easyString_stringsMatch_null_and_count("startUseRadians", t.at, t.size)) {
+                    gotStartRadians = true;
                     t = lexGetNextToken(&tokenizer);
                     assert(t.type == TOKEN_COLON);
                     t = lexGetNextToken(&tokenizer);
@@ -109,6 +126,11 @@ LoadSettingsFileResult loadSettingsFile(SettingsToSave *settingsToSave) {
                     }
                  }
             }
+        }
+
+        if(!gotStartRadians || !gotCode) {
+            //NOTE: Make sure they're correct otherwise it will go out of sync
+            result.settingsToSave.startUseRadians = result.settingsToSave.useRadians;
         }
     }
     return result;

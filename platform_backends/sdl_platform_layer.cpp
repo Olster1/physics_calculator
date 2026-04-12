@@ -120,7 +120,7 @@ int main(int argc, char** argv) {
   int w = 1920;
   int h = 1080;
 
-  window = SDL_CreateWindow("Calculator",
+  window = SDL_CreateWindow(DEFINED_FILE_NAME,
     w, h, flags);
   if (!window) {
     SDL_Log("CreateWindow failed: %s", SDL_GetError());
@@ -206,10 +206,9 @@ int main(int argc, char** argv) {
                 clearStringBuffer(&gameState->stringBuffer);
             }
           } else if(gameState->mode == INTERACTION_MODE_PICK_THEME) {
-            gameState->themeIndex++;
-            gameState->themeIndex %= arrayCount(gameState->colorPallettes.pallettes);
-            gameState->colorPallette = &gameState->colorPallettes.pallettes[gameState->themeIndex];
-            gameState->settingsToSave.themeIndex = gameState->themeIndex;
+            gameState->settingsToSave.themeIndex++;
+            gameState->settingsToSave.themeIndex %= arrayCount(gameState->colorPallettes.pallettes);
+            gameState->colorPallette = &gameState->colorPallettes.pallettes[gameState->settingsToSave.themeIndex];
             saveSettingsFile(&gameState->settingsToSave);
           }
         }
@@ -222,12 +221,11 @@ int main(int argc, char** argv) {
               gameState->currentCompilerError = 0;
             }
           } else if(gameState->mode == INTERACTION_MODE_PICK_THEME) {
-            gameState->themeIndex--;
-            if(gameState->themeIndex < 0) {
-              gameState->themeIndex = 0;
+            gameState->settingsToSave.themeIndex--;
+            if(gameState->settingsToSave.themeIndex < 0) {
+              gameState->settingsToSave.themeIndex = 0;
             }
-            gameState->colorPallette = &gameState->colorPallettes.pallettes[gameState->themeIndex];
-            gameState->settingsToSave.themeIndex = gameState->themeIndex;
+            gameState->colorPallette = &gameState->colorPallettes.pallettes[gameState->settingsToSave.themeIndex];
             saveSettingsFile(&gameState->settingsToSave);
           }
         }

@@ -356,13 +356,13 @@ bool runCode(VmMachineState *state, GameState *gameState, List<VmOperation> oper
             // --- Configuration ---
             case OP_CODE_SET_DEGREES_MODE: {
                 state->useRadians = false;
-                gameState->useRadians = false;
+                gameState->settingsToSave.useRadians = false;
                 vmMachine_push(state, { .type = OP_CODE_STRING, .name = "Degrees Set" });
                 break;
             }
             case OP_CODE_SET_RADIANS_MODE: {
                 state->useRadians = true;
-                gameState->useRadians = true;
+                gameState->settingsToSave.useRadians = true;
                 vmMachine_push(state, { .type = OP_CODE_STRING, .name = "Radians Set" });
                 break;
             }
