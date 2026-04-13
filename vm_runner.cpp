@@ -191,9 +191,9 @@ bool runCode(VmMachineState *state, GameState *gameState, List<VmOperation> oper
                     }
 
 
-                    assert(gameState->calculatorLineCount < gameState->maxCalculatorLineCount);
-                    assert(gameState->calculatorLineCount == calculatorLineNumber);
-                    CalculatorLine *line = &gameState->calculatorLines[gameState->calculatorLineCount++];
+                    assert(gameState->calculatorLinesParent.calculatorLineCount < gameState->calculatorLinesParent.maxCalculatorLineCount);
+                    assert(gameState->calculatorLinesParent.calculatorLineCount == calculatorLineNumber);
+                    CalculatorLine *line = &gameState->calculatorLinesParent.calculatorLines[gameState->calculatorLinesParent.calculatorLineCount++];
                     line->out = b.string;
                 }
                 break;

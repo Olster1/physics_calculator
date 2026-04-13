@@ -3,9 +3,8 @@ void initFont(GameState *gameState) {
 }
 
 void runCalculator(GameState *gameState, bool addSemiColor = true) {
-    refreshVmMemoryArena();
-    gameState->operations.clear();
-    gameState->calculatorLineCount = 0;
+
+
 
     char *codeToRun = easy_createString_printf(&globalPerClearSessionArena, "%s%s",  gameState->settingsToSave.code, gameState->stringBuffer.string);
     if(addSemiColor) {
@@ -14,35 +13,7 @@ void runCalculator(GameState *gameState, bool addSemiColor = true) {
 
     gameState->currentCompilerError = 0;
 
-    int numberOfLines = 0;
-    {
-        //NODE: Run through all code to find number of new lines
-        char *str = codeToRun;
-        while(*str) {
-            if(*str == ';') {
-                numberOfLines++;
-            }
-            str++;
-        }
-
-        //NOTE: Allocate the array
-        gameState->maxCalculatorLineCount = numberOfLines;
-        gameState->calculatorLines = pushArray(&globalPerVmRunLifetime, numberOfLines, CalculatorLine);
-
-        //NOTE: Loop through again and set the strings
-        char *start = codeToRun;
-        str = codeToRun;
-        int lineAt = 0;
-        while(*str) {
-            if(*str == ';') {
-                gameState->calculatorLines[lineAt++].in = nullTerminateArena(start, (int)(str - start), &globalPerVmRunLifetime);
-                start = str + 1;
-            }
-            str++;
-        }
-    }
-
-    char *error = compileToByteCode(codeToRun, &gameState->operations);
+    char *error = compileToByteCode(codeToRun, &gameState->operations, &gameState->calculatorLinesParent);
 
     if(!error) {
         VmMachineState machineState  = initVmMachineState(gameState->settingsToSave.startUseRadians);

@@ -4,3 +4,9 @@ struct CalculatorLine {
     char *units;
     int significantFigures;
 };
+
+struct CalculatorLines {
+    int calculatorLineCount;
+    int maxCalculatorLineCount;
+    CalculatorLine *calculatorLines; //NOTE: Lives on per vm run arena
+};

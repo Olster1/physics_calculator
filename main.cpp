@@ -111,14 +111,11 @@ void updateGame(GameState *gameState) {
     }
 
 
-
-
-
     float startX = -0.5f*plane.x - gameState->bufferOffset.x;
     float2 at = make_float2(startX, -0.5f*plane.y + 5 - gameState->bufferOffset.y);
-    for(int i = gameState->calculatorLineCount - 1; i >= 0; --i) {
+    for(int i = gameState->calculatorLinesParent.calculatorLineCount - 1; i >= 0; --i) {
         at.x = startX;
-        CalculatorLine *b = gameState->calculatorLines + i;
+        CalculatorLine *b = gameState->calculatorLinesParent.calculatorLines + i;
         assert(b->in);
         assert(b->out);
 
@@ -141,9 +138,10 @@ void updateGame(GameState *gameState) {
 
     //NOTE: Render the errors
     if(gameState->currentCompilerError) {
-        pushRenderTexture(&gameState->renderer, make_transformX_float2(make_float2(0, -0.5f*plane.y + 2*lineHeight), make_float2(plane.x, lineHeight)), gameState->imageFiles.whiteImage, gameState->colorPallette->backgroundVariation);
+        float yAt = -0.5f*plane.y + 1.3f*lineHeight;
+        pushRenderTexture(&gameState->renderer, make_transformX_float2(make_float2(0, yAt), make_float2(plane.x, lineHeight)), gameState->imageFiles.whiteImage, gameState->colorPallette->backgroundVariation);
         float sideOffset = 1;
-        float2 at = make_float2(-0.5f*plane.x + sideOffset, -0.5f*plane.y + 2*lineHeight);
+        float2 at = make_float2(-0.5f*plane.x + sideOffset, yAt);
         renderTextAsTokens(gameState, gameState->currentCompilerError, at, plane, 0.5f);
     }
 

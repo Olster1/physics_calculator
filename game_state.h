@@ -30,9 +30,7 @@ struct GameState {
     StringBuffer *strBufferFreeList;
     float2 bufferOffset;
 
-    int calculatorLineCount;
-    int maxCalculatorLineCount;
-    CalculatorLine *calculatorLines; //NOTE: Lives on per vm run arena
+    CalculatorLines calculatorLinesParent;
 
     SettingsToSave settingsToSave;
 
@@ -57,7 +55,7 @@ void clearCalculatorBuffer(GameState *gameState) {
     refreshVmMemoryArena();
     refreshPerClearSessionArena();
     gameState->operations.clear();
-    gameState->calculatorLineCount = 0;
+    gameState->calculatorLinesParent.calculatorLineCount = 0;
     gameState->settingsToSave.startUseRadians = gameState->settingsToSave.useRadians;
     //NOTE: This string is stored int the per clear session arena so is free now
     gameState->settingsToSave.code = "";

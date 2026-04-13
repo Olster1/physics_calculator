@@ -180,6 +180,7 @@ int main(int argc, char** argv) {
         }
         if(e.key.key == SDLK_ESCAPE) {
           gameState->mode = INTERACTION_MODE_DEFAULT;
+          gameState->currentCompilerError = 0;
         }
         if (e.key.key == SDLK_LEFT) {
           if(gameState->mode == INTERACTION_MODE_DEFAULT) {

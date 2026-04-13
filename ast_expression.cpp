@@ -40,9 +40,9 @@ struct ExpressionParser {
 
     void logError(char *errorIn) {
         if(error) {
-            error = easy_createString_printf(&globalPerVmRunLifetime, "%s\n%s", error, errorIn);
+            error = easy_createString_printf(&globalPerFrameArena, "%s\n%s", error, errorIn);
         } else {
-            error = easy_createString_printf(&globalPerVmRunLifetime, "%s", errorIn);
+            error = easy_createString_printf(&globalPerFrameArena, "%s", errorIn);
         }
     }
 };
@@ -53,7 +53,7 @@ bool consumeNextToken(ExpressionParser *parser, EasyTokenType typeAssumed) {
     if(t.type != typeAssumed) {
         // assert(false);
         //NOTE: Emit error
-        parser->logError(easy_createString_printf(&globalPerVmRunLifetime, "Expected %s, got %s\n", LexTokenTypeStrings[typeAssumed], LexTokenTypeStrings[t.type]));
+        parser->logError(easy_createString_printf(&globalPerFrameArena, "Expected %s, got %s\n", LexTokenTypeStrings[typeAssumed], LexTokenTypeStrings[t.type]));
         wasSuccess = false;
     }
     return wasSuccess;

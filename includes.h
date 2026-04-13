@@ -12,6 +12,7 @@
 #include "./save_load.cpp"
 #include "./vm_runner.h"
 #include "./ast_expression.cpp"
+#include "./ast_type_checker.cpp"
 #include "./ast_interpreter.cpp"
 #include "./ast.cpp"
 #include "./string_buffer.cpp"
