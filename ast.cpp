@@ -11,6 +11,11 @@ AstExpression *parseGlobalScope(char *codeToCompile, ExpressionParser *parser) {
         AstExpression *arg  = parseExpression(parser, 0);
         parent->arguments.push(arg);
         consumeNextToken(parser, TOKEN_SEMI_COLON);
+
+        //NOTE: Eat any extraneous semi colons. I'm not sure if there is a more natural way this can occur that just happens by itself?
+        while(lexSeeNextToken(&parser->tokenizer).type == TOKEN_SEMI_COLON) {
+            lexGetNextToken(&parser->tokenizer);
+        }
     } while(lexSeeNextToken(&parser->tokenizer).type != TOKEN_NULL_TERMINATOR);
 
     consumeNextToken(parser, TOKEN_NULL_TERMINATOR);

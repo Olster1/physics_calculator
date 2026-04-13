@@ -200,21 +200,18 @@ AstExpression *parseExpression(ExpressionParser *parser, int precedence) {
 
     AstExpression *left = parsePrefixExpression(parser, t);
 
-
-
     if(left) {
 
         while(precedence < getPrecedenceOfNextToken(parser)) {
             t = lexGetNextToken(&parser->tokenizer); //NOTE: Consume the token we just saw with the above function getPrecedenceOfNextToken
             left = parseInfixExpression(parser, t, left);
             if(!left) {
-                parser->logError("Expected an infix token");
-                // assert(left);
+                parser->logError(easy_createString_printf(&globalPerFrameArena, "Expected an infix token, got %s", LexTokenTypeStrings[t.type]));
             }
         }
     } else {
         //NOTE: Emit error about expecting something else
-        parser->logError("Expected a prefix token");
+        parser->logError(easy_createString_printf(&globalPerFrameArena, "Expected a prefix token, got %s", LexTokenTypeStrings[t.type]));
     }
 
     return left;
