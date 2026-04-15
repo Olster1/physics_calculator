@@ -1,7 +1,9 @@
 
 #include <SDL3/SDL.h>
-#include <SDL3_image/SDL_image.h>
 #include <SDL3/SDL_main.h>
+#define STB_IMAGE_IMPLEMENTATION
+#include "../libs/stb_image.h"
+
 
 #include <stdbool.h>
 #include "../platform.h"
@@ -43,10 +45,11 @@ void platform_freeClipBoardText(char *txt) {
   SDL_free(txt);
 }
 
-#include "../backend_renderer/sdl_backend_renderer.cpp"
+#include "../backend_renderer/opengl_backend_renderer.cpp"
+// #include "../backend_renderer/sdl_backend_renderer.cpp"
 #include "../main.cpp"
 
-// #include "../backend_renderer/opengl_backend_renderer.cpp"
+
 
 void updateMouseButton(u32 mouseState, GameState *gameState, MouseButtonType index, u32 sdlButtonType) {
   if(mouseState & SDL_BUTTON_MASK(sdlButtonType)) {
@@ -89,12 +92,14 @@ static Uint32 lastTicks = 0;
 
 struct UpdateLoopData {
   GameState *gameState;
+  BackendRenderer *backendRenderer;
   int w;
   int h;
 };
 
 static void updateFrame(void* arg) {
   UpdateLoopData *data = (UpdateLoopData *)arg;
+  BackendRenderer *backendRenderer = data->backendRenderer;
   GameState *gameState = data->gameState;
   Uint32 now = SDL_GetTicks();
   gameState->dt = (float)(now - lastTicks) / 1000.0f;
@@ -103,9 +108,9 @@ static void updateFrame(void* arg) {
   getMouseData(gameState);
 
   updateGame(gameState);
-  processRenderGroup(&gameState->renderer, make_float2(data->w, data->h));
+  processRenderGroup(&gameState->renderer, make_float2(data->w, data->h), backendRenderer);
 
-  backend_render_swapFrame();
+  backend_render_swapFrame(window);
 
 }
 
@@ -117,6 +122,10 @@ int main(int argc, char** argv) {
 
   int flags = SDL_WINDOW_RESIZABLE;
 
+  if(OPENGL_BUILD) {
+    flags |= SDL_WINDOW_OPENGL;
+  }
+
   int w = 1920;
   int h = 1080;
 
@@ -127,10 +136,10 @@ int main(int argc, char** argv) {
     return 1;
   }
 
-  backend_render_init();
+  BackendRenderer backendRenderer = {};
+  backend_render_init(window, &backendRenderer);
 
   backend_render_getOutputSize(&w, &h);
-
   platform_setWindowSize(w, h);
 
   global_default_window_size_x = w;
@@ -246,6 +255,9 @@ int main(int argc, char** argv) {
         gameState->settingsToSave.windowY = h;
 
         saveSettingsFile(&gameState->settingsToSave);
+
+        backendRenderer_setViewport(0, 0, w, h);
+
       }
       if (e.type == SDL_EVENT_WINDOW_MOVED) {
         int x = e.window.data1;
@@ -266,6 +278,7 @@ int main(int argc, char** argv) {
     data.gameState = gameState;
     data.w = w;
     data.h = h;
+    data.backendRenderer = &backendRenderer;
     updateFrame(&data);
     gameState->enterPressed = false;
   }

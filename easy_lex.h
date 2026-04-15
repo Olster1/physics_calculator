@@ -77,6 +77,8 @@ FUNC(TOKEN_OPEN_SQUARE_BRACKET) \
 FUNC(TOKEN_CLOSE_SQUARE_BRACKET) \
 FUNC(TOKEN_TAB) \
 FUNC(TOKEN_EQUALS) \
+FUNC(TOKEN_BIT_AND) \
+FUNC(TOKEN_BIT_OR) \
 FUNC(TOKEN_PLUS) \
 FUNC(TOKEN_MINUS) \
 FUNC(TOKEN_DOUBLE_EQUAL)\
@@ -90,7 +92,8 @@ FUNC(TOKEN_PREPROCESSOR)\
 FUNC(TOKEN_CASE_KEYWORD)\
 FUNC(TOKEN_ELSE)\
 FUNC(TOKEN_TYPEDEF_KEYWORD)\
-
+FUNC(TOKEN_BIT_SHIFT_LEFT)\
+FUNC(TOKEN_BIT_SHIFT_RIGHT)\
 
 
 typedef enum {
@@ -176,6 +179,7 @@ typedef struct {
     int lineNumber;
     bool parsing;
     bool eatWhiteSpace;
+    bool eatWhiteSpaceExceptNewLine;
     bool parseComments;
 
 } EasyTokenizer;
@@ -183,13 +187,15 @@ typedef struct {
 typedef enum {
     EASY_LEX_OPTION_NONE = 0,
     EASY_LEX_OPTION_EAT_WHITE_SPACE = 1 << 0,
-    EASY_LEX_EAT_SLASH_COMMENTS = 1 << 1,
+    EASY_LEX_OPTION_EAT_WHITE_SPACE_EXCEPT_NEW_LINE = 1 << 1,
+    EASY_LEX_EAT_SLASH_COMMENTS = 1 << 2,
 } EasyLexOptions;
 
 EasyTokenizer lexBeginParsing(void *src, EasyLexOptions options) {
     EasyTokenizer result = {};
     result.src = (char *)src;
     result.eatWhiteSpace = options & EASY_LEX_OPTION_EAT_WHITE_SPACE;
+    result.eatWhiteSpaceExceptNewLine = options & EASY_LEX_OPTION_EAT_WHITE_SPACE_EXCEPT_NEW_LINE;
     result.parseComments = !(options & EASY_LEX_EAT_SLASH_COMMENTS);
     result.parsing = true;
     return result;
@@ -224,7 +230,8 @@ EasyToken lexGetToken_(EasyTokenizer *tokenizer, bool advanceWithToken) {
     char *at = tokenizer->src;
     int *lineNumber = &tokenizer->lineNumber;
     EasyToken token = lexInitToken(TOKEN_UNINITIALISED, at, 1, *lineNumber);
-    if(tokenizer->eatWhiteSpace) { at = lexEatWhiteSpace(at); }
+
+    if(tokenizer->eatWhiteSpaceExceptNewLine) { at = lexEatWhiteSpaceExceptNewLine(at); } else if(tokenizer->eatWhiteSpace) { at = lexEatWhiteSpace(at); }
 
     switch(*at) {
         case ' ': {
@@ -297,6 +304,14 @@ EasyToken lexGetToken_(EasyTokenizer *tokenizer, bool advanceWithToken) {
             token = lexInitToken(TOKEN_AT_SYMBOL, at, 1, *lineNumber);
             at++;
         } break;
+        case '&': {
+            token = lexInitToken(TOKEN_BIT_AND, at, 1, *lineNumber);
+            at++;
+        } break;
+        case '|': {
+            token = lexInitToken(TOKEN_BIT_OR, at, 1, *lineNumber);
+            at++;
+        } break;
         case '=': {
             token = lexInitToken(TOKEN_EQUALS, at, 1, *lineNumber);
             at++;
@@ -315,6 +330,10 @@ EasyToken lexGetToken_(EasyTokenizer *tokenizer, bool advanceWithToken) {
                 token.type = TOKEN_GREATER_THAN_OR_EQUAL_TO;
                 token.size = 2;
                 at++;
+            } else if(*at && *at == '>') {
+                token.type = TOKEN_BIT_SHIFT_RIGHT;
+                token.size = 2;
+                at++;
             }
         } break;
         case '<': {
@@ -323,6 +342,10 @@ EasyToken lexGetToken_(EasyTokenizer *tokenizer, bool advanceWithToken) {
 
             if(*at && *at == '=') {
                 token.type = TOKEN_LESS_THAN_OR_EQUAL_TO;
+                token.size = 2;
+                at++;
+            } else if(*at && *at == '<') {
+                token.type = TOKEN_BIT_SHIFT_LEFT;
                 token.size = 2;
                 at++;
             }

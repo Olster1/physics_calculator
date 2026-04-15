@@ -1,7 +1,7 @@
 
 AstExpression *parseGlobalScope(char *codeToCompile, ExpressionParser *parser) {
 
-    parser->tokenizer = lexBeginParsing(codeToCompile, EASY_LEX_OPTION_EAT_WHITE_SPACE);
+    parser->tokenizer = lexBeginParsing(codeToCompile, EASY_LEX_OPTION_EAT_WHITE_SPACE_EXCEPT_NEW_LINE);
 
     AstExpression *parent = pushStruct(&globalPerFrameArena, AstExpression);
     parent->type = AST_EXPRESSION_TYPE_BLOCK;
@@ -10,7 +10,7 @@ AstExpression *parseGlobalScope(char *codeToCompile, ExpressionParser *parser) {
     do {
         AstExpression *arg  = parseExpression(parser, 0);
         parent->arguments.push(arg);
-        consumeNextToken(parser, TOKEN_SEMI_COLON);
+        consumeNextToken(parser, TOKEN_NEWLINE);
 
         //NOTE: Eat any extraneous semi colons. I'm not sure if there is a more natural way this can occur that just happens by itself?
         while(lexSeeNextToken(&parser->tokenizer).type == TOKEN_SEMI_COLON) {
@@ -31,7 +31,7 @@ void clearPerVmRunData(List<VmOperation> *operations, char *codeToRun, Calculato
         //NODE: Run through all code to find number of new lines
         char *str = codeToRun;
         while(*str) {
-            if(*str == ';') {
+            if(lexIsNewLine(*str)) {
                 numberOfLines++;
             }
             str++;
@@ -48,7 +48,7 @@ void clearPerVmRunData(List<VmOperation> *operations, char *codeToRun, Calculato
         str = codeToRun;
         int lineAt = 0;
         while(*str) {
-            if(*str == ';') {
+            if(*str == '\n') {
                 calculatorLines->calculatorLines[lineAt++].in = nullTerminateArena(start, (int)(str - start), &globalPerVmRunLifetime);
                 start = str + 1;
             }

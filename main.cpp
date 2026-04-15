@@ -43,6 +43,8 @@ Rect2f renderTextAsTokens(GameState *gameState, char *string, float2 at, float2 
 
         }
     }
+
+    // Rect2f bounds = renderText(&gameState->renderer, &gameState->mainFont, string, at, scaleFactor*BODY_FONT_SCALE, MY_COLOR_BLACK, true, cursorLocation, &cursorRect);
     //NOTE: Draw the cursor location
     if(cursorLocation >= 0) {
         float lineHeight = 5;
@@ -95,6 +97,7 @@ void updateGame(GameState *gameState) {
         if(get_scale_rect2f(dim).x > maxBufferSize.x) {
             maxBufferSize.x = get_scale_rect2f(dim).x;
         }
+        maxBufferSize.y += lineHeight;
     }
 
     //NOTE: Draw radians or degrees mode
@@ -110,7 +113,7 @@ void updateGame(GameState *gameState) {
         renderText(&gameState->renderer, &gameState->mainFont, angleMode, at, scale, gameState->colorPallette->standard);
     }
 
-
+    //NOTE: Draw the calculator lines
     float startX = -0.5f*plane.x - gameState->bufferOffset.x;
     float2 at = make_float2(startX, -0.5f*plane.y + 5 - gameState->bufferOffset.y);
     for(int i = gameState->calculatorLinesParent.calculatorLineCount - 1; i >= 0; --i) {

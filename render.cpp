@@ -11,10 +11,10 @@ void pushRenderTexture(Renderer *renderer, TransformX T, Texture *texture, float
     RenderItem item = {};
     assert(texture && texture->handle.handle);
     item.texture = texture;
-    item.T = getModelToViewSpace_euler(T);
+    item.instance.T = getModelToViewSpace_euler(T);
     item.type = RENDER_TEXTURE;
-    item.color = color;
-    item.uvCoords = texture->uv;
+    item.instance.color = color;
+    item.instance.uv = texture->uv;
     if(renderer->commandsCount < arrayCount(renderer->renderCommands)) {
         renderer->renderCommands[renderer->commandsCount++] = item;
     } else {
@@ -26,22 +26,10 @@ void pushRenderGlyph(Renderer *renderer, float3 pos, float3 scale, float4 uvCoor
     RenderItem item = {};
     assert(fontTexture && fontTexture->handle.handle);
     item.texture = fontTexture;
-    item.T = getModelToViewSpace_euler(make_transformX(pos, scale, make_float4(0, 0, 0, 1)));
+    item.instance.T = getModelToViewSpace_euler(make_transformX(pos, scale, make_float4(0, 0, 0, 1)));
     item.type = RENDER_TEXTURE;
-    item.color = color;
-    item.uvCoords = uvCoords;
-    if(renderer->commandsCount < arrayCount(renderer->renderCommands)) {
-        renderer->renderCommands[renderer->commandsCount++] = item;
-    } else {
-        assert(false);
-    }
-}
-
-void pushRenderRect(Renderer *renderer, TransformX T, float4 color) {
-    RenderItem item = {};
-    item.T = getModelToViewSpace_euler(T);
-    item.type = RENDER_RECT;
-    item.color = color;
+    item.instance.color = color;
+    item.instance.uv = uvCoords;
     if(renderer->commandsCount < arrayCount(renderer->renderCommands)) {
         renderer->renderCommands[renderer->commandsCount++] = item;
     } else {
@@ -53,7 +41,7 @@ void pushRenderView(Renderer *renderer, float16 T) {
     if(renderer->commandsCount < arrayCount(renderer->renderCommands)) {
         RenderItem item = {};
         item.type = RENDER_VIEW_MATRIX;
-        item.T = T;
+        item.instance.T = T;
         renderer->renderCommands[renderer->commandsCount++] = item;
     } else {
         assert(false);

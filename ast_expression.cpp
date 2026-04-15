@@ -6,6 +6,7 @@ enum AstExpressionPrecendence {
     AST_PRECEDENCE_PREFIX,
     AST_PRECEDENCE_POSTFIX,
     AST_PRECEDENCE_EXPONENT,
+    AST_PRECEDENCE_BIT_OPERATIONS,
     AST_PRECEDENCE_CALL,
 };
 
@@ -123,6 +124,12 @@ AstExpressionPrecendence getInfixPrecedenceForToken(EasyToken t) {
         case TOKEN_CARROT: {
             precedence = AST_PRECEDENCE_EXPONENT;
         } break;
+        case TOKEN_BIT_AND:
+        case TOKEN_BIT_OR:
+        case TOKEN_BIT_SHIFT_RIGHT:
+        case TOKEN_BIT_SHIFT_LEFT: {
+            precedence = AST_PRECEDENCE_BIT_OPERATIONS;
+        } break;
         case TOKEN_OPEN_PARENTHESIS: {
             precedence = AST_PRECEDENCE_CALL;
         } break;
@@ -149,6 +156,10 @@ AstExpression *parseInfixExpression(ExpressionParser *parser, EasyToken t, AstEx
         case TOKEN_FORWARD_SLASH:
         case TOKEN_PLUS:
         case TOKEN_CARROT:
+        case TOKEN_BIT_AND:
+        case TOKEN_BIT_OR:
+        case TOKEN_BIT_SHIFT_LEFT:
+        case TOKEN_BIT_SHIFT_RIGHT:
         case TOKEN_MINUS: {
             infix = pushStruct(&globalPerFrameArena, AstExpression);
             infix->token = t;
@@ -211,7 +222,7 @@ AstExpression *parseExpression(ExpressionParser *parser, int precedence) {
         }
     } else {
         //NOTE: Emit error about expecting something else
-        parser->logError(easy_createString_printf(&globalPerFrameArena, "Expected a prefix token, got %s", LexTokenTypeStrings[t.type]));
+        parser->logError(easy_createString_printf(&globalPerFrameArena, "Expected an expression, got %s", LexTokenTypeStrings[t.type]));
     }
 
     return left;

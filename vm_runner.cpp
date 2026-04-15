@@ -416,13 +416,61 @@ bool runCode(VmMachineState *state, GameState *gameState, List<VmOperation> oper
                 }
                 break;
             }
-              case OP_CODE_POWER_TO: {
+            case OP_CODE_POWER_TO: {
                 VmOperation op = vmMachine_pop(state);
                 VmOperation op1 = vmMachine_pop(state);
                 if(!vm_isError(op) && !vm_isError(op1)) {
                     VmOperation newOp = {};
                     newOp.type = OP_CODE_NUMBER;
                     newOp.value_ = pow(vmOp_getValue(state, op1).value, vmOp_getValue(state, op).value);
+                    vmMachine_push(state, newOp);
+                    // printf("%f\n", newOp.value_);
+                }
+                break;
+            }
+            case OP_CODE_BIT_SHIFT_LEFT: {
+                VmOperation op = vmMachine_pop(state);
+                VmOperation op1 = vmMachine_pop(state);
+                if(!vm_isError(op) && !vm_isError(op1)) {
+                    VmOperation newOp = {};
+                    newOp.type = OP_CODE_NUMBER;
+                    newOp.value_ = (double)((u64)(vmOp_getValue(state, op1).value) << (u64)(vmOp_getValue(state, op).value));
+                    vmMachine_push(state, newOp);
+                    // printf("%f\n", newOp.value_);
+                }
+                break;
+            }
+            case OP_CODE_BIT_SHIFT_RIGHT: {
+                VmOperation op = vmMachine_pop(state);
+                VmOperation op1 = vmMachine_pop(state);
+                if(!vm_isError(op) && !vm_isError(op1)) {
+                    VmOperation newOp = {};
+                    newOp.type = OP_CODE_NUMBER;
+                    newOp.value_ = (double)((u64)(vmOp_getValue(state, op1).value) >> (u64)(vmOp_getValue(state, op).value));
+                    vmMachine_push(state, newOp);
+                    // printf("%f\n", newOp.value_);
+                }
+                break;
+            }
+            case OP_CODE_BIT_OP_AND: {
+                VmOperation op = vmMachine_pop(state);
+                VmOperation op1 = vmMachine_pop(state);
+                if(!vm_isError(op) && !vm_isError(op1)) {
+                    VmOperation newOp = {};
+                    newOp.type = OP_CODE_NUMBER;
+                    newOp.value_ = (double)((u64)(vmOp_getValue(state, op1).value) & (u64)(vmOp_getValue(state, op).value));
+                    vmMachine_push(state, newOp);
+                    // printf("%f\n", newOp.value_);
+                }
+                break;
+            }
+             case OP_CODE_BIT_OP_OR: {
+                VmOperation op = vmMachine_pop(state);
+                VmOperation op1 = vmMachine_pop(state);
+                if(!vm_isError(op) && !vm_isError(op1)) {
+                    VmOperation newOp = {};
+                    newOp.type = OP_CODE_NUMBER;
+                    newOp.value_ = (double)((u64)(vmOp_getValue(state, op1).value) | (u64)(vmOp_getValue(state, op).value));
                     vmMachine_push(state, newOp);
                     // printf("%f\n", newOp.value_);
                 }

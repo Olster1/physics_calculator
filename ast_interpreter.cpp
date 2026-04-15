@@ -140,6 +140,22 @@ void interpretOperatorExpression(CompilerState *state, AstExpression *expression
             VmOperation op = { .type = OP_CODE_POWER_TO };
             state->operations->push(op);
         } break;
+        case TOKEN_BIT_SHIFT_RIGHT: {
+            VmOperation op = { .type = OP_CODE_BIT_SHIFT_RIGHT };
+            state->operations->push(op);
+        } break;
+        case TOKEN_BIT_SHIFT_LEFT: {
+            VmOperation op = { .type = OP_CODE_BIT_SHIFT_LEFT };
+            state->operations->push(op);
+        } break;
+        case TOKEN_BIT_AND: {
+            VmOperation op = { .type = OP_CODE_BIT_OP_AND };
+            state->operations->push(op);
+        } break;
+        case TOKEN_BIT_OR: {
+            VmOperation op = { .type = OP_CODE_BIT_OP_OR };
+            state->operations->push(op);
+        } break;
         default: {
             assert(false);
         } break;

@@ -8,7 +8,7 @@ void runCalculator(GameState *gameState, bool addSemiColor = true) {
 
     char *codeToRun = easy_createString_printf(&globalPerClearSessionArena, "%s%s",  gameState->settingsToSave.code, gameState->stringBuffer.string);
     if(addSemiColor) {
-        codeToRun = easy_createString_printf(&globalPerClearSessionArena, "%s%s",  codeToRun, ";");
+        codeToRun = easy_createString_printf(&globalPerClearSessionArena, "%s%s",  codeToRun, "\n");
     }
 
     gameState->currentCompilerError = 0;

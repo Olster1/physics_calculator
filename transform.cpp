@@ -1,5 +1,5 @@
 struct TransformX {
-    float3 pos; 
+    float3 pos;
     float3 scale;
     float4 rotation; //NOTE: Quarternion
 };
@@ -7,7 +7,7 @@ struct TransformX {
 struct SQT {
     float3 scale;
     float4 rotation;
-    float3 pos; 
+    float3 pos;
 };
 
 SQT SQT_identity() {
@@ -20,7 +20,7 @@ SQT SQT_identity() {
 
 TransformX make_transformX(float3 pos, float3 scale, float4 rotation = make_float4(0, 0, 0, 1)) {
     TransformX t = {};
-    t.pos = pos; 
+    t.pos = pos;
     t.scale = scale;
     t.rotation = rotation;
 
@@ -29,14 +29,12 @@ TransformX make_transformX(float3 pos, float3 scale, float4 rotation = make_floa
 
 TransformX make_transformX_float2(float2 pos, float2 scale, float rotation = 0) {
     TransformX t = {};
-    t.pos = make_float3(pos.x, pos.y, 1); 
+    t.pos = make_float3(pos.x, pos.y, 1);
     t.scale = make_float3(scale.x, scale.y, 1);
     t.rotation = make_float4(rotation, 0, 0, 1);
 
     return t;
 }
-
-
 
 float16 getModelToViewSpace_euler(TransformX T) {
     float16 i = float16_identity();

@@ -348,6 +348,10 @@ TypeCheckerType typeCheckOperatorExpression(CompilerState *state, AstExpression 
             case TOKEN_MINUS:
             case TOKEN_ASTRIX:
             case TOKEN_FORWARD_SLASH:
+            case TOKEN_BIT_SHIFT_RIGHT:
+            case TOKEN_BIT_SHIFT_LEFT:
+            case TOKEN_BIT_AND:
+            case TOKEN_BIT_OR:
             case TOKEN_CARROT: {
                 type = { .type = AST_VARIABLE_NUMBER, .count = 1 };
             } break;
