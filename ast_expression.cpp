@@ -65,6 +65,14 @@ AstExpression *parseExpression(ExpressionParser *parser, int precedence);
 AstExpression *parsePrefixExpression(ExpressionParser *parser, EasyToken t) {
     AstExpression *prefix = 0;
     switch(t.type) {
+        case TOKEN_U64_TYPE: {
+            //NOTE: Is a type case operation
+            prefix = pushStruct(&globalPerFrameArena, AstExpression);
+            prefix->token = t;
+            prefix->type = AST_EXPRESSION_TYPE_PREFIX;
+            consumeNextToken(parser, TOKEN_OPEN_PARENTHESIS);
+            prefix->right = parseExpression(parser, AST_PRECEDENCE_PREFIX);
+        } break;
         case TOKEN_PLUS:
         case TOKEN_MINUS: {
             prefix = pushStruct(&globalPerFrameArena, AstExpression);

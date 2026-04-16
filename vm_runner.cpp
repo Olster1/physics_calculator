@@ -23,7 +23,7 @@ VmOperation vmMachine_push(VmMachineState *state, VmOperation operation) {
         state->at += sizeof(VmOperation);
     } else {
         result.type = OP_CODE_ERROR;
-        result.value_ = (int)VM_ERROR_STACK_OVERFLOW;
+        result.as_int = (int)VM_ERROR_STACK_OVERFLOW;
         assert(false);
     }
     return result;
@@ -33,10 +33,19 @@ void pushStackVariable(VmMachineState *state, char *name, VmOperation *values, i
     StackVariable *existingVar = getStackVariable(state, name);
 
     if(existingVar) {
-        assert(existingVar->count == count);
-        VmOperation *dec = (VmOperation *)(state->stackBase + existingVar->bytesOffset);
-        assert(dec->type == OP_CODE_NUMBER);
-        easyPlatform_copyMemory(dec, values, sizeof(VmOperation)*count);
+        if(existingVar->count == count) {
+            //NOTE: Just the same values so just memcpy them from one spot to the other
+            VmOperation *dec = (VmOperation *)(state->stackBase + existingVar->bytesOffset);
+            assert(dec->type == OP_CODE_FLOAT || dec->type == OP_CODE_UINT);
+            easyPlatform_copyMemory(dec, values, sizeof(VmOperation)*count);
+        } else {
+            //NOTE: Changing size of array so reallocate the array on the stack
+             existingVar->count = count;
+             existingVar->bytesOffset = (u64)(state->at - state->stackBase);
+             for(int i = 0; i < count; ++i) {
+                vmMachine_push(state, values[i]);
+            }
+        }
     } else {
          StackVariable *var = pushStruct(&globalPerFrameArena, StackVariable);
          var->count = count;
@@ -58,16 +67,36 @@ void pushStackVariable(VmMachineState *state, char *name, VmOperation *values, i
     }
 }
 
-VmNumberType vmOp_getValue(VmMachineState *state, VmOperation op) {
+VmNumberType vmOp_getValue(VmMachineState *state, VmOperation op, OpCode desiredType) {
     VmNumberType result = {};
-    if(op.type == OP_CODE_NUMBER) {
-        result.value = op.value_;
+    if(op.type == OP_CODE_UINT) {
+        result.type = op.type;
+        result.raw = op.raw;
+        if(desiredType == OP_CODE_FLOAT) {
+            result.as_float = (double)op.as_uint;
+            result.type = OP_CODE_FLOAT;
+        } else if(desiredType == OP_CODE_UINT){
+            result.as_uint = op.as_uint;
+            result.type = OP_CODE_UINT;
+        }
+        result.count = 1;
+    } else if(op.type == OP_CODE_FLOAT) {
+        result.type = op.type;
+        result.raw = op.raw;
+        if(desiredType == OP_CODE_FLOAT) {
+            result.as_float = op.as_float;
+            result.type = OP_CODE_FLOAT;
+        } else if(desiredType == OP_CODE_UINT) {
+            result.as_uint = (u64)op.as_float;
+            result.type = OP_CODE_FLOAT;
+        }
         result.count = 1;
     } else if(op.type == OP_CODE_VARIABLE_REFERENCE) {
         assert(op.name);
         StackVariable *var = getStackVariable(state, op.name);
         assert(var);
         result.count = var->count;
+        result.type = OP_CODE_FLOAT;
 
         if(result.count > 1) {
             //NOTE: Is array type so load all the values on the stack
@@ -78,12 +107,15 @@ VmNumberType vmOp_getValue(VmMachineState *state, VmOperation op) {
         } else {
             assert(result.count == 1);
             VmOperation *dec = (VmOperation *)(state->stackBase + var->bytesOffset);
-            assert(dec->type == OP_CODE_NUMBER);
-            result.value = dec->value_;
+            assert(dec->type == OP_CODE_FLOAT || dec->type == OP_CODE_UINT);
+            result = vmOp_getValue(state, *dec, desiredType);
         }
     } else if(op.type == OP_CODE_NUMBER_ARRAY) {
-        result.count = op.value_;
+        // assert(op.type == OP_CODE_FLOAT);
+        result.type = OP_CODE_FLOAT;
+        result.count = (double)op.as_float;
     } else if(op.type == OP_CODE_STRING) {
+        result.type = OP_CODE_STRING;
         result.name = op.name;
     } else {
         state->panic = "Expected a number of variable";
@@ -112,17 +144,17 @@ VmOperation vmMachine_pop(VmMachineState *state) {
         easyPlatform_copyMemory(&result, state->at, sizeof(VmOperation));
     } else {
         result.type = OP_CODE_ERROR;
-        result.value_ = (int)VM_ERROR_STACK_UNDERFLOW;
+        result.as_uint = (int)VM_ERROR_STACK_UNDERFLOW;
         assert(false);
     }
     return result;
 }
 
-VmNumberType popAndGetValueNumber(VmMachineState *state) {
+VmNumberType popAndGetValueNumber(VmMachineState *state, OpCode desiredType) {
     VmNumberType result = {};
     VmOperation op = vmMachine_pop(state);
     if(!vm_isError(op)) {
-        result = vmOp_getValue(state, op);
+        result = vmOp_getValue(state, op, desiredType);
     } else {
         assert(false);
         state->panic = "error";
@@ -145,16 +177,16 @@ bool runCode(VmMachineState *state, GameState *gameState, List<VmOperation> oper
         switch (op->type) {
             // --- Vector Operations ---
             case OP_CODE_VECTOR_LENGTH: {
-                double vectorSize = popAndGetValueNumber(state).count;
+                double vectorSize = popAndGetValueNumber(state, OP_CODE_FLOAT).count;
                 VmOperation newOp = {};
-                newOp.type = OP_CODE_NUMBER;
+                newOp.type = OP_CODE_FLOAT;
 
                 if(vectorSize == 3) {
-                    float3 a = make_float3(popAndGetValueNumber(state).value, popAndGetValueNumber(state).value, popAndGetValueNumber(state).value);
-                    newOp.value_ = float3_magnitude(a);
+                    float3 a = make_float3(popAndGetValueNumber(state, OP_CODE_FLOAT).as_float, popAndGetValueNumber(state, OP_CODE_FLOAT).as_float, popAndGetValueNumber(state, OP_CODE_FLOAT).as_float);
+                    newOp.as_float = float3_magnitude(a);
                 } else if(vectorSize == 2) {
-                    float2 a = make_float2(popAndGetValueNumber(state).value, popAndGetValueNumber(state).value);
-                    newOp.value_ = float2_magnitude(a);
+                    float2 a = make_float2(popAndGetValueNumber(state, OP_CODE_FLOAT).as_float, popAndGetValueNumber(state, OP_CODE_FLOAT).as_float);
+                    newOp.as_float = float2_magnitude(a);
                 } else {
                     assert(false);
                 }
@@ -163,18 +195,18 @@ bool runCode(VmMachineState *state, GameState *gameState, List<VmOperation> oper
                 break;
             }
             case OP_CODE_PRINT: {
-                double calculatorLineNumber = popAndGetValueNumber(state).value;
+                double calculatorLineNumber = popAndGetValueNumber(state, OP_CODE_FLOAT).as_float;
                 //NOTE: If unit test we want to keep the value that was going to be printed for us to check the value
                 if(!isUnitTest)
                 {
-                    VmNumberType value = popAndGetValueNumber(state);
+                    VmNumberType value = popAndGetValueNumber(state, OP_CODE_NONE);
 
                     StringBuffer b = {};
                     if(value.count > 1) {
                         assert(!value.name);
                         b.string = "[";
                         for(int i = 0; i < value.count; ++i) {
-                            double arrayValue = popAndGetValueNumber(state).value;
+                            double arrayValue = popAndGetValueNumber(state, OP_CODE_FLOAT).as_float;
                             b.string = easy_createString_printf(&globalPerVmRunLifetime, "%s%f", b.string, arrayValue);
                             if(i < value.count - 1) {
                                 b.string = easy_createString_printf(&globalPerVmRunLifetime, "%s, ", b.string);
@@ -184,8 +216,12 @@ bool runCode(VmMachineState *state, GameState *gameState, List<VmOperation> oper
                     } else {
                         if(value.name) {
                             b.string = easy_createString_printf(&globalPerVmRunLifetime, "%s", value.name);
+                        } else if(value.type == OP_CODE_FLOAT){
+                            b.string = easy_createString_printf(&globalPerVmRunLifetime, "%f", value.as_float);
+                        } else if(value.type == OP_CODE_UINT){
+                            b.string = easy_createString_printf(&globalPerVmRunLifetime, "%lu", value.as_int);
                         } else {
-                            b.string = easy_createString_printf(&globalPerVmRunLifetime, "%f", value.value);
+                            assert(false);
                         }
 
                     }
@@ -199,68 +235,68 @@ bool runCode(VmMachineState *state, GameState *gameState, List<VmOperation> oper
                 break;
             }
             case OP_CODE_DOT_PRODUCT: {
-                double vectorSize = popAndGetValueNumber(state).count;
+                double vectorSize = popAndGetValueNumber(state, OP_CODE_FLOAT).count;
                 VmOperation newOp = {};
-                newOp.type = OP_CODE_NUMBER;
+                newOp.type = OP_CODE_FLOAT;
 
                 if(vectorSize == 3) {
-                    float3 a = make_float3(popAndGetValueNumber(state).value, popAndGetValueNumber(state).value, popAndGetValueNumber(state).value);
-                    double vectorSizeB = popAndGetValueNumber(state).count;
+                    float3 a = make_float3(popAndGetValueNumber(state, OP_CODE_FLOAT).as_float, popAndGetValueNumber(state, OP_CODE_FLOAT).as_float, popAndGetValueNumber(state, OP_CODE_FLOAT).as_float);
+                    double vectorSizeB = popAndGetValueNumber(state, OP_CODE_FLOAT).count;
                     assert(vectorSize = vectorSizeB);
-                    float3 b = make_float3(popAndGetValueNumber(state).value, popAndGetValueNumber(state).value, popAndGetValueNumber(state).value);
-                    newOp.value_ = float3_dot(a, b);
+                    float3 b = make_float3(popAndGetValueNumber(state, OP_CODE_FLOAT).as_float, popAndGetValueNumber(state, OP_CODE_FLOAT).as_float, popAndGetValueNumber(state, OP_CODE_FLOAT).as_float);
+                    newOp.as_float = float3_dot(a, b);
                 } else if(vectorSize == 2) {
-                    float2 a = make_float2(popAndGetValueNumber(state).value, popAndGetValueNumber(state).value);
-                    double vectorSizeB = popAndGetValueNumber(state).count;
+                    float2 a = make_float2(popAndGetValueNumber(state, OP_CODE_FLOAT).as_float, popAndGetValueNumber(state, OP_CODE_FLOAT).as_float);
+                    double vectorSizeB = popAndGetValueNumber(state, OP_CODE_FLOAT).count;
                     assert(vectorSize = vectorSizeB);
-                    float2 b = make_float2(popAndGetValueNumber(state).value, popAndGetValueNumber(state).value);
-                    newOp.value_ = float2_dot(a, b);
+                    float2 b = make_float2(popAndGetValueNumber(state, OP_CODE_FLOAT).as_float, popAndGetValueNumber(state, OP_CODE_FLOAT).as_float);
+                    newOp.as_float = float2_dot(a, b);
                 }
 
                 vmMachine_push(state, newOp);
                 break;
             }
             case OP_CODE_CROSS_PRODUCT: {
-                 double vectorSize = popAndGetValueNumber(state).count;
+                 double vectorSize = popAndGetValueNumber(state, OP_CODE_FLOAT).count;
 
 
                 if(vectorSize == 3) {
-                    float3 a = make_float3(popAndGetValueNumber(state).value, popAndGetValueNumber(state).value, popAndGetValueNumber(state).value);
-                    double vectorSizeB = popAndGetValueNumber(state).count;
+                    float3 a = make_float3(popAndGetValueNumber(state, OP_CODE_FLOAT).as_float, popAndGetValueNumber(state, OP_CODE_FLOAT).as_float, popAndGetValueNumber(state, OP_CODE_FLOAT).as_float);
+                    double vectorSizeB = popAndGetValueNumber(state, OP_CODE_FLOAT).count;
                     assert(vectorSize = vectorSizeB);
-                    float3 b = make_float3(popAndGetValueNumber(state).value, popAndGetValueNumber(state).value, popAndGetValueNumber(state).value);
+                    float3 b = make_float3(popAndGetValueNumber(state, OP_CODE_FLOAT).as_float, popAndGetValueNumber(state, OP_CODE_FLOAT).as_float, popAndGetValueNumber(state, OP_CODE_FLOAT).as_float);
                     float3 vecRes = float3_cross(a, b);
-                    vmMachine_push(state, {.type = OP_CODE_NUMBER, .value_ = vecRes.z});
-                    vmMachine_push(state, {.type = OP_CODE_NUMBER, .value_ = vecRes.y});
-                    vmMachine_push(state, {.type = OP_CODE_NUMBER, .value_ = vecRes.x});
-                    vmMachine_push(state, {.type = OP_CODE_NUMBER_ARRAY, .value_ = 3});
+                    vmMachine_push(state, {.type = OP_CODE_FLOAT, .as_float = vecRes.z});
+                    vmMachine_push(state, {.type = OP_CODE_FLOAT, .as_float = vecRes.y});
+                    vmMachine_push(state, {.type = OP_CODE_FLOAT, .as_float = vecRes.x});
+                    vmMachine_push(state, {.type = OP_CODE_NUMBER_ARRAY, .as_float = 3});
                 } else if(vectorSize == 2) {
-                    float2 a = make_float2(popAndGetValueNumber(state).value, popAndGetValueNumber(state).value);
-                    double vectorSizeB = popAndGetValueNumber(state).count;
+                    float2 a = make_float2(popAndGetValueNumber(state, OP_CODE_FLOAT).as_float, popAndGetValueNumber(state, OP_CODE_FLOAT).as_float);
+                    double vectorSizeB = popAndGetValueNumber(state, OP_CODE_FLOAT).count;
                     assert(vectorSize = vectorSizeB);
-                    float2 b = make_float2(popAndGetValueNumber(state).value, popAndGetValueNumber(state).value);
+                    float2 b = make_float2(popAndGetValueNumber(state, OP_CODE_FLOAT).as_float, popAndGetValueNumber(state, OP_CODE_FLOAT).as_float);
                     float vecRes = float2_cross(a, b);
-                    vmMachine_push(state, {.type = OP_CODE_NUMBER, .value_ = vecRes});
+                    vmMachine_push(state, {.type = OP_CODE_FLOAT, .as_float = vecRes});
                 }
 
                 break;
             }
             case OP_CODE_SUMMATION: {
-                double arrayLength = popAndGetValueNumber(state).count;
+                double arrayLength = popAndGetValueNumber(state, OP_CODE_FLOAT).count;
 
                 double total = 0;
                 for(int i = 0; i < arrayLength; ++i) {
-                    total += popAndGetValueNumber(state).value;
+                    total += popAndGetValueNumber(state, OP_CODE_FLOAT).as_float;
                 }
 
-                VmOperation newOp = { .type = OP_CODE_NUMBER, .value_ = total};
+                VmOperation newOp = { .type = OP_CODE_FLOAT, .as_float = total};
                 vmMachine_push(state, newOp);
                 break;
             }
             case OP_CODE_QUADRATIC: {
-                double c = popAndGetValueNumber(state).value;
-                double b = popAndGetValueNumber(state).value;
-                double a = popAndGetValueNumber(state).value;
+                double c = popAndGetValueNumber(state, OP_CODE_FLOAT).as_float;
+                double b = popAndGetValueNumber(state, OP_CODE_FLOAT).as_float;
+                double a = popAndGetValueNumber(state, OP_CODE_FLOAT).as_float;
 
                 double underSqrt = (b*b) - 4*a*c;
 
@@ -272,83 +308,83 @@ bool runCode(VmMachineState *state, GameState *gameState, List<VmOperation> oper
                 double resultA = (-b - sqrt(underSqrt)) / bottom;
                 double resultB = (-b + sqrt(underSqrt)) / bottom;
 
-                vmMachine_push(state, { .type = OP_CODE_NUMBER, .value_ = resultA });
-                vmMachine_push(state, { .type = OP_CODE_NUMBER, .value_ = resultB });
-                vmMachine_push(state, { .type = OP_CODE_NUMBER_ARRAY, .value_ = 2 });
+                vmMachine_push(state, { .type = OP_CODE_FLOAT, .as_float = resultA });
+                vmMachine_push(state, { .type = OP_CODE_FLOAT, .as_float = resultB });
+                vmMachine_push(state, { .type = OP_CODE_NUMBER_ARRAY, .as_float = 2 });
                 break;
             }
 
             // --- Trigonometry ---
             case OP_CODE_SIN: {
-                double value = popAndGetValueNumber(state).value;
-                VmOperation newOp = { .type = OP_CODE_NUMBER };
-                newOp.value_ = sin(vm_getAngle(state, value));
+                double value = popAndGetValueNumber(state, OP_CODE_FLOAT).as_float;
+                VmOperation newOp = { .type = OP_CODE_FLOAT };
+                newOp.as_float = sin(vm_getAngle(state, value));
 
                 vmMachine_push(state, newOp);
                 break;
             }
 
             case OP_CODE_COS: {
-                double value = popAndGetValueNumber(state).value;
-                VmOperation newOp = { .type = OP_CODE_NUMBER };
-                newOp.value_ = cos(vm_getAngle(state, value));
+                double value = popAndGetValueNumber(state, OP_CODE_FLOAT).as_float;
+                VmOperation newOp = { .type = OP_CODE_FLOAT };
+                newOp.as_float = cos(vm_getAngle(state, value));
                 vmMachine_push(state, newOp);
                 break;
             }
              case OP_CODE_NEGATE: {
-                double value = popAndGetValueNumber(state).value;
-                VmOperation newOp = { .type = OP_CODE_NUMBER };
-                newOp.value_ = -1*value;
+                double value = popAndGetValueNumber(state, OP_CODE_FLOAT).as_float;
+                VmOperation newOp = { .type = OP_CODE_FLOAT };
+                newOp.as_float = -1*value;
                 vmMachine_push(state, newOp);
                 break;
             }
             case OP_CODE_TAN: {
-                double value = popAndGetValueNumber(state).value;
-                VmOperation newOp = { .type = OP_CODE_NUMBER };
-                newOp.value_ = tan(vm_getAngle(state, value));
+                double value = popAndGetValueNumber(state, OP_CODE_FLOAT).as_float;
+                VmOperation newOp = { .type = OP_CODE_FLOAT };
+                newOp.as_float = tan(vm_getAngle(state, value));
                 vmMachine_push(state, newOp);
                 break;
             }
             case OP_CODE_ARCSIN: {
-                double value = popAndGetValueNumber(state).value;
-                VmOperation newOp = { .type = OP_CODE_NUMBER };
-                newOp.value_ = asin(vm_getAngle(state, value));
+                double value = popAndGetValueNumber(state, OP_CODE_FLOAT).as_float;
+                VmOperation newOp = { .type = OP_CODE_FLOAT };
+                newOp.as_float = asin(vm_getAngle(state, value));
                 vmMachine_push(state, newOp);
                 break;
             }
              case OP_CODE_SQR: {
-                double value = popAndGetValueNumber(state).value;
-                VmOperation newOp = { .type = OP_CODE_NUMBER} ;
-                newOp.value_ = value * value;
+                double value = popAndGetValueNumber(state, OP_CODE_FLOAT).as_float;
+                VmOperation newOp = { .type = OP_CODE_FLOAT} ;
+                newOp.as_float = value * value;
                 vmMachine_push(state, newOp);
                 break;
             }
             case OP_CODE_SQRT: {
-                double value = popAndGetValueNumber(state).value;
-                VmOperation newOp = { .type = OP_CODE_NUMBER };
-                newOp.value_ = sqrt(value);
+                double value = popAndGetValueNumber(state, OP_CODE_FLOAT).as_float;
+                VmOperation newOp = { .type = OP_CODE_FLOAT };
+                newOp.as_float = sqrt(value);
                 vmMachine_push(state, newOp);
                 break;
             }
             case OP_CODE_ARCCOS: {
-                double value = popAndGetValueNumber(state).value;
-                VmOperation newOp = { .type = OP_CODE_NUMBER };
-                newOp.value_ = acos(vm_getAngle(state, value));
+                double value = popAndGetValueNumber(state, OP_CODE_FLOAT).as_float;
+                VmOperation newOp = { .type = OP_CODE_FLOAT };
+                newOp.as_float = acos(vm_getAngle(state, value));
                 vmMachine_push(state, newOp);
                 break;
             }
             case OP_CODE_ARCTAN: {
-                double value = popAndGetValueNumber(state).value;
-                VmOperation newOp = { .type = OP_CODE_NUMBER };
-                newOp.value_ = atan(vm_getAngle(state, value));
+                double value = popAndGetValueNumber(state, OP_CODE_FLOAT).as_float;
+                VmOperation newOp = { .type = OP_CODE_FLOAT };
+                newOp.as_float = atan(vm_getAngle(state, value));
                 vmMachine_push(state, newOp);
                 break;
             }
             case OP_CODE_ARCTAN2: {
-                double value = popAndGetValueNumber(state).value;
-                double value1 = popAndGetValueNumber(state).value;
-                VmOperation newOp = { .type = OP_CODE_NUMBER};
-                newOp.value_ = atan2(vm_getAngle(state, value1), vm_getAngle(state, value));
+                double value = popAndGetValueNumber(state, OP_CODE_FLOAT).as_float;
+                double value1 = popAndGetValueNumber(state, OP_CODE_FLOAT).as_float;
+                VmOperation newOp = { .type = OP_CODE_FLOAT};
+                newOp.as_float = atan2(vm_getAngle(state, value1), vm_getAngle(state, value));
                 vmMachine_push(state, newOp);
                 break;
             }
@@ -373,8 +409,10 @@ bool runCode(VmMachineState *state, GameState *gameState, List<VmOperation> oper
                 VmOperation op1 = vmMachine_pop(state);
                 if(!vm_isError(op) && !vm_isError(op1)) {
                     VmOperation newOp = {};
-                    newOp.type = OP_CODE_NUMBER;
-                    newOp.value_ = vmOp_getValue(state, op).value + vmOp_getValue(state, op1).value;
+
+                    //TODO: This could be a different instruction for float vs int ADD
+                    newOp.type = OP_CODE_FLOAT;
+                    newOp.as_float = vmOp_getValue(state, op, OP_CODE_FLOAT).as_float + vmOp_getValue(state, op1, OP_CODE_FLOAT).as_float;
                     vmMachine_push(state, newOp);
                     // printf("%f\n", newOp.value_);
                 }
@@ -385,8 +423,8 @@ bool runCode(VmMachineState *state, GameState *gameState, List<VmOperation> oper
                 VmOperation op1 = vmMachine_pop(state);
                 if(!vm_isError(op) && !vm_isError(op1)) {
                     VmOperation newOp = {};
-                    newOp.type = OP_CODE_NUMBER;
-                    newOp.value_ = vmOp_getValue(state, op1).value - vmOp_getValue(state, op).value;
+                    newOp.type = OP_CODE_FLOAT;
+                    newOp.as_float = vmOp_getValue(state, op1, OP_CODE_FLOAT).as_float - vmOp_getValue(state, op, OP_CODE_FLOAT).as_float;
                     vmMachine_push(state, newOp);
                     // printf("%f\n", newOp.value_);
                 }
@@ -397,8 +435,8 @@ bool runCode(VmMachineState *state, GameState *gameState, List<VmOperation> oper
                 VmOperation op1 = vmMachine_pop(state);
                 if(!vm_isError(op) && !vm_isError(op1)) {
                     VmOperation newOp = {};
-                    newOp.type = OP_CODE_NUMBER;
-                    newOp.value_ = vmOp_getValue(state, op).value * vmOp_getValue(state, op1).value;
+                    newOp.type = OP_CODE_FLOAT;
+                    newOp.as_float = vmOp_getValue(state, op, OP_CODE_FLOAT).as_float * vmOp_getValue(state, op1, OP_CODE_FLOAT).as_float;
                     vmMachine_push(state, newOp);
                     // printf("%f\n", newOp.value_);
                 }
@@ -409,8 +447,8 @@ bool runCode(VmMachineState *state, GameState *gameState, List<VmOperation> oper
                 VmOperation op1 = vmMachine_pop(state);
                 if(!vm_isError(op) && !vm_isError(op1)) {
                     VmOperation newOp = {};
-                    newOp.type = OP_CODE_NUMBER;
-                    newOp.value_ = vmOp_getValue(state, op1).value / vmOp_getValue(state, op).value;
+                    newOp.type = OP_CODE_FLOAT;
+                    newOp.as_float = vmOp_getValue(state, op1, OP_CODE_FLOAT).as_float / vmOp_getValue(state, op, OP_CODE_FLOAT).as_float;
                     vmMachine_push(state, newOp);
                     // printf("%f\n", newOp.value_);
                 }
@@ -421,8 +459,8 @@ bool runCode(VmMachineState *state, GameState *gameState, List<VmOperation> oper
                 VmOperation op1 = vmMachine_pop(state);
                 if(!vm_isError(op) && !vm_isError(op1)) {
                     VmOperation newOp = {};
-                    newOp.type = OP_CODE_NUMBER;
-                    newOp.value_ = pow(vmOp_getValue(state, op1).value, vmOp_getValue(state, op).value);
+                    newOp.type = OP_CODE_FLOAT;
+                    newOp.as_float = pow(vmOp_getValue(state, op1, OP_CODE_FLOAT).as_float, vmOp_getValue(state, op, OP_CODE_FLOAT).as_float);
                     vmMachine_push(state, newOp);
                     // printf("%f\n", newOp.value_);
                 }
@@ -433,8 +471,8 @@ bool runCode(VmMachineState *state, GameState *gameState, List<VmOperation> oper
                 VmOperation op1 = vmMachine_pop(state);
                 if(!vm_isError(op) && !vm_isError(op1)) {
                     VmOperation newOp = {};
-                    newOp.type = OP_CODE_NUMBER;
-                    newOp.value_ = (double)((u64)(vmOp_getValue(state, op1).value) << (u64)(vmOp_getValue(state, op).value));
+                    newOp.type = OP_CODE_UINT;
+                    newOp.as_uint =((u64)(vmOp_getValue(state, op1, OP_CODE_UINT).as_uint) << (u64)(vmOp_getValue(state, op, OP_CODE_UINT).as_uint));
                     vmMachine_push(state, newOp);
                     // printf("%f\n", newOp.value_);
                 }
@@ -445,8 +483,8 @@ bool runCode(VmMachineState *state, GameState *gameState, List<VmOperation> oper
                 VmOperation op1 = vmMachine_pop(state);
                 if(!vm_isError(op) && !vm_isError(op1)) {
                     VmOperation newOp = {};
-                    newOp.type = OP_CODE_NUMBER;
-                    newOp.value_ = (double)((u64)(vmOp_getValue(state, op1).value) >> (u64)(vmOp_getValue(state, op).value));
+                    newOp.type = OP_CODE_UINT;
+                    newOp.as_uint = ((u64)(vmOp_getValue(state, op1, OP_CODE_UINT).as_uint) >> (u64)(vmOp_getValue(state, op, OP_CODE_UINT).as_uint));
                     vmMachine_push(state, newOp);
                     // printf("%f\n", newOp.value_);
                 }
@@ -457,8 +495,8 @@ bool runCode(VmMachineState *state, GameState *gameState, List<VmOperation> oper
                 VmOperation op1 = vmMachine_pop(state);
                 if(!vm_isError(op) && !vm_isError(op1)) {
                     VmOperation newOp = {};
-                    newOp.type = OP_CODE_NUMBER;
-                    newOp.value_ = (double)((u64)(vmOp_getValue(state, op1).value) & (u64)(vmOp_getValue(state, op).value));
+                    newOp.type = OP_CODE_UINT;
+                    newOp.as_uint =((u64)(vmOp_getValue(state, op1, OP_CODE_UINT).as_uint) & (u64)(vmOp_getValue(state, op, OP_CODE_UINT).as_uint));
                     vmMachine_push(state, newOp);
                     // printf("%f\n", newOp.value_);
                 }
@@ -469,8 +507,8 @@ bool runCode(VmMachineState *state, GameState *gameState, List<VmOperation> oper
                 VmOperation op1 = vmMachine_pop(state);
                 if(!vm_isError(op) && !vm_isError(op1)) {
                     VmOperation newOp = {};
-                    newOp.type = OP_CODE_NUMBER;
-                    newOp.value_ = (double)((u64)(vmOp_getValue(state, op1).value) | (u64)(vmOp_getValue(state, op).value));
+                    newOp.type = OP_CODE_UINT;
+                    newOp.as_uint = ((u64)(vmOp_getValue(state, op1, OP_CODE_UINT).as_uint) | (u64)(vmOp_getValue(state, op, OP_CODE_UINT).as_uint));
                     vmMachine_push(state, newOp);
                     // printf("%f\n", newOp.value_);
                 }
@@ -485,11 +523,15 @@ bool runCode(VmMachineState *state, GameState *gameState, List<VmOperation> oper
             }
 
             // --- Literals / Types ---
-
-            case OP_CODE_NUMBER: {
+            case OP_CODE_FLOAT: {
                 vmMachine_push(state, *op);
                 break;
             }
+            case OP_CODE_UINT: {
+                vmMachine_push(state, *op);
+                break;
+            }
+
             case OP_CODE_NUMBER_ARRAY: {
                 vmMachine_push(state, *op);
                 break;
@@ -499,17 +541,18 @@ bool runCode(VmMachineState *state, GameState *gameState, List<VmOperation> oper
                 break;
             }
             case OP_CODE_VARIABLE_ASSIGN: {
-                VmNumberType value = popAndGetValueNumber(state);
+                VmNumberType value = popAndGetValueNumber(state, OP_CODE_NONE);
 
                 if(value.count > 1) {
                     VmOperation *tempArray = pushArray(&globalPerFrameArena, value.count, VmOperation);
                     for(int i = value.count - 1; i >= 0; --i) {
-                        tempArray[i].type = OP_CODE_NUMBER;
-                        tempArray[i].value_ = popAndGetValueNumber(state).value;
+                        VmNumberType arrayValue = popAndGetValueNumber(state, OP_CODE_NONE);
+                        tempArray[i].type = arrayValue.type;
+                        tempArray[i].raw = arrayValue.raw;
                     }
                     pushStackVariable(state, op->name, tempArray, value.count);
                 } else {
-                    VmOperation opcode = { .type = OP_CODE_NUMBER, .value_ = value.value };
+                    VmOperation opcode = { .type = value.type, .raw = value.raw };
                     pushStackVariable(state, op->name, &opcode, 1);
                 }
 

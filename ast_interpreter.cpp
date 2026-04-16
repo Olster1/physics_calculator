@@ -1,6 +1,6 @@
 
 void pushPrintOperation(CompilerState *state) {
-    VmOperation data = { .type = OP_CODE_NUMBER, .value_ = (double)(state->calculatorLineAt++) };
+    VmOperation data = { .type = OP_CODE_FLOAT, .as_float = (double)(state->calculatorLineAt++) };
     state->operations->push(data);
 
     data = { .type = OP_CODE_PRINT };
@@ -11,10 +11,10 @@ void interpretExpression(CompilerState *state, AstExpression *expression);
 
 void interpretLiteralExpression(CompilerState *state, AstExpression *expression) {
     if(expression->token.type == TOKEN_INTEGER) {
-        VmOperation op = { .type = OP_CODE_NUMBER, .value_ = (double)expression->token.intVal };
+        VmOperation op = { .type = OP_CODE_UINT, .as_uint = expression->token.intVal };
         state->operations->push(op);
     } else if(expression->token.type == TOKEN_FLOAT) {
-        VmOperation op = { .type = OP_CODE_NUMBER, .value_ = expression->token.floatVal };
+        VmOperation op = { .type = OP_CODE_FLOAT, .as_float = expression->token.floatVal };
         state->operations->push(op);
     } else {
         assert(false);
@@ -59,7 +59,7 @@ void interpretArrayExpression(CompilerState *state, AstExpression *expression) {
     for(int i = expression->arguments.count - 1; i >= 0 ; --i) {
         interpretExpression(state, expression->arguments[i]);
     }
-    state->operations->push({ .type = OP_CODE_NUMBER_ARRAY, .value_ = (double)expression->arguments.count });
+    state->operations->push({ .type = OP_CODE_NUMBER_ARRAY, .as_float = (double)expression->arguments.count });
 
 }
 

@@ -39,6 +39,7 @@ FUNC(TOKEN_STRING) \
 FUNC(TOKEN_INTEGER) \
 FUNC(TOKEN_FLOAT) \
 FUNC(TOKEN_UINT_TYPE) \
+FUNC(TOKEN_U64_TYPE) \
 FUNC(TOKEN_INT_TYPE) \
 FUNC(TOKEN_FLOAT_TYPE) \
 FUNC(TOKEN_CHAR_TYPE) \
@@ -115,10 +116,10 @@ typedef struct {
 
     union {
         struct {
-            int intVal;
+            u64 intVal;
         };
         struct {
-            float floatVal;
+            double floatVal;
         };
     };
 } EasyToken;
@@ -440,7 +441,9 @@ EasyToken lexGetToken_(EasyTokenizer *tokenizer, bool advanceWithToken) {
                 token.size = at - token.at;
                 token.isKeyword = false;
 
-
+                if(easyString_stringsMatch_null_and_count("u64", token.at, token.size)) {
+                    token.type = TOKEN_U64_TYPE;
+                }
             } else if(lexIsNumeric(*at)) {
 
                 token = lexInitToken(TOKEN_INTEGER, at, 1, *lineNumber);
@@ -491,7 +494,7 @@ EasyToken lexGetToken_(EasyTokenizer *tokenizer, bool advanceWithToken) {
                         token.type = TOKEN_FLOAT;
                         token.floatVal = atof(a);
                     } else {
-                        token.intVal = atoi(a);
+                        token.intVal = strtoul(token.at, &at, 10);
                     }
                 }
 

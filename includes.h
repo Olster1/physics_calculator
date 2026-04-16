@@ -16,6 +16,7 @@
 #include "./ast_interpreter.cpp"
 #include "./ast.cpp"
 #include "./string_buffer.cpp"
+#include "./texture_atlas.cpp"
 #include "./game_state.h"
 #include "./load_images.cpp"
 #include "./vm_runner.cpp"

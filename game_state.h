@@ -15,6 +15,8 @@ struct GameState {
     float aspectRatioWindow_y_over_x;
     Renderer renderer;
 
+    TextureAtlas textureAtlas;
+
     float2 scrollWheelDelta;
     char *currentCompilerError;
 

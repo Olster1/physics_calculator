@@ -26,7 +26,8 @@
     FUNC(OP_CODE_BIT_SHIFT_RIGHT) \
     FUNC(OP_CODE_BIT_OP_AND) \
     FUNC(OP_CODE_BIT_OP_OR) \
-    FUNC(OP_CODE_NUMBER) \
+    FUNC(OP_CODE_FLOAT) \
+    FUNC(OP_CODE_UINT) \
     FUNC(OP_CODE_NUMBER_ARRAY) \
     FUNC(OP_CODE_STRING) \
     FUNC(OP_CODE_VARIABLE_ASSIGN) \
@@ -37,18 +38,13 @@
     FUNC(OP_CODE_CLEAR) \
     FUNC(OP_CODE_ERROR)
 
+
 typedef enum {
     EASY_OP_CODE_TYPE(ENUM)
 } OpCode;
 
 static char *OpCodeTypeStrings[] = {
     EASY_OP_CODE_TYPE(STRING)
-};
-
-struct VmOperation {
-    OpCode type;
-    double value_;
-    char *name; //NOTE: For variables allocated on the per vm run arena
 };
 
 enum VmErrorCode {
@@ -64,9 +60,28 @@ struct StackVariable {
     StackVariable *next; //NOTE: Linked list pointer
 };
 
+struct VmOperation {
+    OpCode type;
+    union {
+        int64_t as_int;
+        uint64_t as_uint;
+        double  as_float;
+        uint64_t raw;
+    };
+    char *name; //NOTE: For variables allocated on the per vm run arena
+};
+
 struct VmNumberType {
-    double value;
+    OpCode type;
+     union {
+        int64_t as_int;
+        uint64_t as_uint;
+        double  as_float;
+        uint64_t raw;
+
+    };
     char *name; //NOTE: If it's a string value
+
     int count; //NOTE: If more than 1 it's an array type and there still on the stack
 };
 

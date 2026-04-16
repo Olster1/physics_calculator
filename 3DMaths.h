@@ -96,7 +96,7 @@ inline float ATan2_0toTau(float Y, float X) {
     if(Result < 0) {
         Result += TAU32; // is in the bottom range ie. 180->360. -PI32 being PI32. So we can flip it up by adding TAU32
     }
-    
+
     assert(Result >= 0 && Result <= (TAU32 + 0.00001));
     return Result;
 }
@@ -135,17 +135,17 @@ struct float3
 {
 	union {
 		struct {
-			float x, y, z;	
+			float x, y, z;
 		};
 		struct {
 			float2 xy;
-			float ignore;	
+			float ignore;
 		};
 		struct {
-			float E[3];	
+			float E[3];
 		};
 	};
-}; 
+};
 
 struct float4
 {
@@ -155,15 +155,15 @@ struct float4
 		};
 		struct {
 			float2 xy;
-			float ignore1;	
-			float ignore2;	
+			float ignore1;
+			float ignore2;
 		};
 		struct {
 			float3 xyz;
-			float ignore;	
+			float ignore;
 		};
 		struct {
-			float E[4];	
+			float E[4];
 		};
 	};
 };
@@ -256,7 +256,7 @@ static float2 lerp_float2(float2 a, float2 b, float t) {
 }
 
 float float2_magnitude(float2 v) {
-	float result = (v.x*v.x + v.y*v.y); 
+	float result = (v.x*v.x + v.y*v.y);
 
 	result = sqrt(result);
 
@@ -350,7 +350,7 @@ static Rect2f make_rect2f(float minX, float minY, float maxX, float maxY) {
 	result.maxX = maxX;
 	result.maxY = maxY;
 
-	return result; 
+	return result;
 }
 
 static Rect2f make_rect2f_center_dim(float2 centre, float2 dim) {
@@ -361,7 +361,7 @@ static Rect2f make_rect2f_center_dim(float2 centre, float2 dim) {
 	result.maxX = centre.x + 0.5f*dim.x;
 	result.maxY = centre.y + 0.5f*dim.y;
 
-	return result; 
+	return result;
 }
 
 static Rect2f make_rect2f_inverse_infinity() {
@@ -372,7 +372,7 @@ static Rect2f make_rect2f_inverse_infinity() {
 	result.maxX = -FLT_MAX;
 	result.maxY = -FLT_MAX;
 
-	return result; 
+	return result;
 }
 
 static Rect2f make_rect2f_min_dim(float minX, float minY, float dimX, float dimY) {
@@ -383,7 +383,7 @@ static Rect2f make_rect2f_min_dim(float minX, float minY, float dimX, float dimY
 	result.maxX = minX + dimX;
 	result.maxY = minY + dimY;
 
-	return result; 
+	return result;
 }
 static float2 get_centre_rect2f(Rect2f r) {
 	float2 result = {};
@@ -435,7 +435,7 @@ static Rect2f rect2f_minowski_plus(Rect2f a, Rect2f b, float2 center) {
 	Rect2f result = make_rect2f_center_dim(center, scale);
 
 	return result;
-}	
+}
 
 struct Rect3f {
 	union {
@@ -453,7 +453,7 @@ struct Rect3f {
 		};
 	};
 
-	
+
 };
 
 float3 rect3f_getCenter(Rect3f r) {
@@ -471,7 +471,7 @@ static Rect3f make_rect3f(float minX, float minY, float minZ, float maxX, float 
 	result.maxY = maxY;
 	result.maxZ = maxZ;
 
-	return result; 
+	return result;
 }
 
 static Rect3f rect3f_expand_uniform(Rect3f a, float size) {
@@ -497,7 +497,7 @@ static Rect3f make_rect3f_center_dim(float3 centre, float3 dim) {
 	result.maxY = centre.y + 0.5f*dim.y;
 	result.maxZ = centre.z + 0.5f*dim.z;
 
-	return result; 
+	return result;
 }
 
 static Rect3f make_rect3f_min_dim(float minX, float minY, float minZ, float dimX, float dimY, float dimZ) {
@@ -510,18 +510,18 @@ static Rect3f make_rect3f_min_dim(float minX, float minY, float minZ, float dimX
 	result.maxY = minY + dimY;
 	result.maxZ = minZ + dimZ;
 
-	return result; 
+	return result;
 }
 
 float3 normalize_float3(float3 v) {
-	float len = (v.x*v.x + v.y*v.y + v.z*v.z); 
+	float len = (v.x*v.x + v.y*v.y + v.z*v.z);
 	len = sqrt(len);
 	if(len != 0) {
 		v.x /= len;
 		v.y /= len;
 		v.z /= len;
-	} 
-	
+	}
+
 	return v;
 }
 
@@ -575,14 +575,14 @@ bool easyMath_castRayAgainstPlane(EasyRay r, EasyPlane p, float3 *hitPoint, floa
     r.direction = normalize_float3(r.direction);
     //
 
-    float denom = float3_dot(p.normal, r.direction); 
+    float denom = float3_dot(p.normal, r.direction);
     if (get_abs_value(denom) > 1e-6) {  //ray is perpindicular to the plane, therefore either infinity or zero solutions
-        float3 p0l0 = minus_float3(p.origin, r.origin); 
-        *tAt = float3_dot(p0l0, p.normal) / denom; 
-        
+        float3 p0l0 = minus_float3(p.origin, r.origin);
+        *tAt = float3_dot(p0l0, p.normal) / denom;
+
         *hitPoint = plus_float3(r.origin, scale_float3(*tAt, r.direction));
         didHit = true;
-    } 
+    }
 
 
     return didHit;
@@ -642,7 +642,7 @@ static inline bool easyMath_rayVsAABB3f(float3 origin, float3 dir, Rect3f b, flo
         }
     }
     *tAt = maxT[whichPlane];
-	
+
     /* Check final candidate actually inside box */
     if (maxT[whichPlane] < 0.) return (false); //behind the ray
     for (i = 0; i < NUMDIM; i++)
@@ -660,7 +660,7 @@ static inline bool easyMath_rayVsAABB3f(float3 origin, float3 dir, Rect3f b, flo
 	testRay.x /= 0.5f*s.x;
 	testRay.y /= 0.5f*s.y;
 	testRay.z /= 0.5f*s.z;
-	
+
 	float maxShadow = 0.0f;
 	float3 normalFound = make_float3(0, 0, 0);
 	bool found = false;
@@ -690,8 +690,8 @@ struct float12
 			float E_[3][3];
 		};
 	};
-    
-}; 
+
+};
 
 struct float16
 {
@@ -703,8 +703,8 @@ struct float16
 			float E_[4][4];
 		};
 	};
-    
-}; 
+
+};
 
 
 #define MATH_3D_NEAR_CLIP_PlANE 0.1f
@@ -752,36 +752,36 @@ static float16 make_ortho_matrix_bottom_left_corner_01NDC(float planeWidth, floa
 
 float12 float12_multiply(float12 a, float12 b) {
     float12 result = {};
-    
+
     for(int i = 0; i < 3; ++i) {
         for(int j = 0; j < 3; ++j) {
-            
-            result.E_[i][j] = 
-                a.E_[0][j] * b.E_[i][0] + 
-                a.E_[1][j] * b.E_[i][1] + 
+
+            result.E_[i][j] =
+                a.E_[0][j] * b.E_[i][0] +
+                a.E_[1][j] * b.E_[i][1] +
                 a.E_[2][j] * b.E_[i][2];
         }
     }
-    
+
     return result;
 }
 
 
 float16 float16_multiply(float16 a, float16 b) {
     float16 result = {};
-    
+
     for(int i = 0; i < 4; ++i) {
         for(int j = 0; j < 4; ++j) {
-            
-            result.E_[i][j] = 
-                a.E_[0][j] * b.E_[i][0] + 
-                a.E_[1][j] * b.E_[i][1] + 
-                a.E_[2][j] * b.E_[i][2] + 
+
+            result.E_[i][j] =
+                a.E_[0][j] * b.E_[i][0] +
+                a.E_[1][j] * b.E_[i][1] +
+                a.E_[2][j] * b.E_[i][2] +
                 a.E_[3][j] * b.E_[i][3];
-            
+
         }
     }
-    
+
     return result;
 }
 
@@ -970,24 +970,24 @@ bool float3_equal(float3 a, float3 b) {
 }
 
 float2 normalize_float2(float2 v) {
-	float len = (v.x*v.x + v.y*v.y); 
+	float len = (v.x*v.x + v.y*v.y);
 	len = sqrt(len);
 	if(len != 0) {
 		v.x /= len;
 		v.y /= len;
-	} 
-	
+	}
+
 	return v;
 }
 
 
 float float3_magnitude_sqr(float3 v) {
-	float result = (v.x*v.x + v.y*v.y + v.z*v.z); 
+	float result = (v.x*v.x + v.y*v.y + v.z*v.z);
 	return result;
 }
 
 float float3_magnitude(float3 v) {
-	float result = (v.x*v.x + v.y*v.y + v.z*v.z); 
+	float result = (v.x*v.x + v.y*v.y + v.z*v.z);
 
 	result = sqrt(result);
 
@@ -1086,14 +1086,14 @@ float12 float12_inverse(float12 m) {
     result.E_[2][0] =  (d * h - e * g) * invDet;
     result.E_[2][1] = -(a * h - b * g) * invDet;
     result.E_[2][2] =  (a * e - b * d) * invDet;
-   
+
     return result;
 }
 
 
 bool rect3fInsideViewFrustrum(Rect3f rect, float3 cameraP, float16 cameraMatrix, float FOV_degrees, float nearClip, float farClip, float aspectRatio_y_over_x) {
 	bool result = true;
-	
+
 	float3 unitXAxis = make_float3(cameraMatrix.E_[0][0], cameraMatrix.E_[0][1], cameraMatrix.E_[0][2]);
 	float3 unitYAxis = make_float3(cameraMatrix.E_[1][0], cameraMatrix.E_[1][1], cameraMatrix.E_[1][2]);
 	float3 unitZAxis = make_float3(cameraMatrix.E_[2][0], cameraMatrix.E_[2][1], cameraMatrix.E_[2][2]);
@@ -1107,7 +1107,7 @@ bool rect3fInsideViewFrustrum(Rect3f rect, float3 cameraP, float16 cameraMatrix,
 		make_float3(rect.minX, rect.maxY, rect.maxZ),
 		make_float3(rect.maxX, rect.minY, rect.maxZ),
 		make_float3(rect.maxX, rect.maxY, rect.maxZ),
-	}; 
+	};
 
 	EasyPlane planes[6];
 
@@ -1163,12 +1163,12 @@ bool rect3fInsideViewFrustrum(Rect3f rect, float3 cameraP, float16 cameraMatrix,
 
 		planes[2 + i].normal = float3_cross(v, orthoVectors[i]);
 	}
-	
+
 	for(int i = 0; i < arrayCount(planes) && result; ++i) {
 		EasyPlane p = planes[i];
 		bool insidePlane = false;
 		for(int j = 0; j < arrayCount(rectPoints) && !insidePlane; ++j) {
-			float3 point = minus_float3(rectPoints[j], p.origin); 
+			float3 point = minus_float3(rectPoints[j], p.origin);
 
 			//NOTE: Normal points inwards to the center of the frustrum
 			if(float3_dot(point, p.normal) >= 0) {
@@ -1242,7 +1242,7 @@ float4 identityQuaternion() {
 
 float4 easyMath_normalizeQuaternion(float4 q) {
     float n = sqrt(q.x*q.x + q.y*q.y + q.z*q.z + q.w*q.w);
-    
+
     q.x /= n;
     q.y /= n;
     q.z /= n;
@@ -1256,12 +1256,12 @@ float12 quaternionToMatrix3x3(float4 q) {
     float12 result = float12_identity();
 
 	q = easyMath_normalizeQuaternion(q);
-    
+
     float x = q.x;
     float y = q.y;
     float z = q.z;
     float w = q.w;
-    
+
     // Compute commonly used terms to avoid redundant calculations
     float x2 = x * x;
     float y2 = y * y;
@@ -1286,17 +1286,17 @@ float12 quaternionToMatrix3x3(float4 q) {
     result.E[8] = 1.0f - 2.0f * (x2 + y2);
 
     return result;
-    
+
 }
 
 float16 quaternionToMatrix(float4 q) {
     float16 result = float16_identity();
-    
+
     float x = q.x;
     float y = q.y;
     float z = q.z;
     float w = q.w;
-    
+
     // Compute commonly used terms to avoid redundant calculations
     float x2 = x * x;
     float y2 = y * y;
@@ -1329,7 +1329,7 @@ float16 quaternionToMatrix(float4 q) {
     result.E[15] = 1.0f;
 
     return result;
-    
+
 }
 
 float4 eulerAnglesToQuaternion(float y, float x, float z) {
@@ -1450,6 +1450,15 @@ float16 sqt_to_float16(float4 q, float3 scale, float3 pos) {
 	result = float16_scale(result, scale);
 	result = float16_multiply(float16_set_pos(float16_identity(), pos), result);
     return result;
+}
+
+inline float safeDivide(float a, float b) {
+	float result = 0;
+
+	if(b != 0) {
+		result = a / b;
+	}
+	return result;
 }
 
 uint32_t get_crc32(char *bytes, size_t bytes_length)

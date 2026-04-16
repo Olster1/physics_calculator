@@ -1,6 +1,7 @@
 #define AST_TYPE_CHECKTYPE(FUNC) \
 FUNC(AST_VARIABLE_NONE) \
 FUNC(AST_VARIABLE_NUMBER) \
+FUNC(AST_VARIABLE_U64) \
 FUNC(AST_VARIABLE_STRING) \
 FUNC(AST_VARIABLE_BOOLEAN) \
 
@@ -51,6 +52,10 @@ struct InterpreterFunction{
     void setReturnType(TypeCheckerType type) {
         returnArgument = type;
     }
+
+    //NOTE: Functions can be overloaded i.e. different arguments or return types. If something is overloaded we store the next function on the pointer
+    //      This probably would be slow if the user had lots and lots of overloaded functions but most functions aren't overloaded
+    InterpreterFunction *overloadFunctions;
 };
 
 struct CompilerState {
@@ -75,7 +80,7 @@ void initCompiler(CompilerState *state) {
         func.pushArgument({.type = AST_VARIABLE_NUMBER, .count = 1});
         func.pushArgument({.type = AST_VARIABLE_NUMBER, .count = 1});
         func.pushArgument({.type = AST_VARIABLE_NUMBER, .count = 1});
-        func.setReturnType({.type = AST_VARIABLE_NUMBER, .count = 2});
+        func.setReturnType({.type = AST_VARIABLE_NUMBER, .count = 2, .isArray = true});
         state->functionCalls.insert("quad", func);
     }
 
@@ -134,29 +139,54 @@ void initCompiler(CompilerState *state) {
         func.setReturnType({.type = AST_VARIABLE_NUMBER, .count = 1});
         state->functionCalls.insert("sqrt", func);
     }
-    //TODO: Make this function overloading
     {
         InterpreterFunction func = InterpreterFunction::init({ .type = OP_CODE_DOT_PRODUCT });
         func.pushArgument({.type = AST_VARIABLE_NUMBER, .count = 2});
         func.pushArgument({.type = AST_VARIABLE_NUMBER, .count = 2});
         func.setReturnType({.type = AST_VARIABLE_NUMBER, .count = 1});
+
+        //NOTE: Overloaded
+        InterpreterFunction *func2 = pushStruct(&globalPerFrameArena, InterpreterFunction);
+        *func2 = InterpreterFunction::init({ .type = OP_CODE_DOT_PRODUCT });
+        func2->pushArgument({.type = AST_VARIABLE_NUMBER, .count = 3});
+        func2->pushArgument({.type = AST_VARIABLE_NUMBER, .count = 3});
+        func2->setReturnType({.type = AST_VARIABLE_NUMBER, .count = 1});
+        func.overloadFunctions = func2;
+
         state->functionCalls.insert("dot", func);
     }
-    //TODO: Make this function overloading
     {
         InterpreterFunction func = InterpreterFunction::init({ .type = OP_CODE_CROSS_PRODUCT });
         func.pushArgument({.type = AST_VARIABLE_NUMBER, .count = 2});
         func.pushArgument({.type = AST_VARIABLE_NUMBER, .count = 2});
-        func.setReturnType({.type = AST_VARIABLE_NUMBER, .count = 2});
+        func.setReturnType({.type = AST_VARIABLE_NUMBER, .count = 2, .isArray = true});
+
+        //NOTE: Overloaded
+        InterpreterFunction *func2 = pushStruct(&globalPerFrameArena, InterpreterFunction);
+        *func2 = InterpreterFunction::init({ .type = OP_CODE_CROSS_PRODUCT });
+        func2->pushArgument({.type = AST_VARIABLE_NUMBER, .count = 3});
+        func2->pushArgument({.type = AST_VARIABLE_NUMBER, .count = 3});
+        func2->setReturnType({.type = AST_VARIABLE_NUMBER, .count = 3, .isArray = true});
+        func.overloadFunctions = func2;
+
         state->functionCalls.insert("cross", func);
     }
-    //TODO: Make this function overloading
+
     {
         InterpreterFunction func = InterpreterFunction::init({ .type = OP_CODE_VECTOR_LENGTH });
         func.pushArgument({.type = AST_VARIABLE_NUMBER, .count = 2});
         func.setReturnType({.type = AST_VARIABLE_NUMBER, .count = 1});
+
+        //NOTE: Overloaded
+        InterpreterFunction *func2 = pushStruct(&globalPerFrameArena, InterpreterFunction);
+        *func2 = InterpreterFunction::init({ .type = OP_CODE_VECTOR_LENGTH });
+        func2->pushArgument({.type = AST_VARIABLE_NUMBER, .count = 3});
+        func2->setReturnType({.type = AST_VARIABLE_NUMBER, .count = 1});
+        func.overloadFunctions = func2;
+
         state->functionCalls.insert("length", func);
     }
+
     {
         InterpreterFunction func = InterpreterFunction::init({ .type = OP_CODE_SUMMATION });
         func.pushArgument({.type = AST_VARIABLE_NUMBER, .count = -1});
@@ -231,6 +261,12 @@ TypeCheckerType typeCheckAssignExpression(CompilerState *state, AstExpression *e
         printf("Variable not declared. Adding it now.\n");
         pushCompilerVariable(state, name, rightType);
         assert(getCompilerVariable(state, name));
+    } else if(variable->type.type != rightType.type) {
+        //NOTE: Check if the user is changing it's type
+        variable->type = rightType;
+    } else if(variable->type.count != rightType.count) {
+        //NOTE: Check if the user is changing it's count
+        variable->type = rightType;
     }
 
     return rightType;
@@ -266,30 +302,51 @@ TypeCheckerType typeCheckCallExpression(CompilerState *state, AstExpression *exp
     if(!functionType) {
         state->parser.error = "Function not declared";
     } else {
-        result = functionType->returnArgument;
+        bool foundMatch = false;
+        char *errorToAssign = 0;
+        while(functionType && !foundMatch) {
+            result = functionType->returnArgument;
+            bool functionMatches = true;
 
-        if(functionType->arguments.count != expression->arguments.count) {
-            state->parser.logError(easy_createString_printf(&globalPerFrameArena, "Expected %d arguments, got %d.", functionType->arguments.count, expression->arguments.count));
-        } else {
-            for(int i = 0; i < expression->arguments.count; ++i) {
-                TypeCheckerType type = functionType->arguments[i];
-                TypeCheckerType t = typeCheckExpression(state, expression->arguments[i]);
+            if(functionType->arguments.count != expression->arguments.count) {
+                char *extraS = "";
+                if(functionType->arguments.count != 1) {
+                    extraS = "s";
+                }
+                errorToAssign = easy_createString_printf(&globalPerFrameArena, "Expected %d argument%s, got %d.", functionType->arguments.count, extraS, expression->arguments.count);
+                functionMatches = false;
+            } else {
+                for(int i = 0; i < expression->arguments.count; ++i) {
+                    TypeCheckerType type = functionType->arguments[i];
+                    TypeCheckerType t = typeCheckExpression(state, expression->arguments[i]);
 
-                bool countWrong = type.count != t.count;
+                    bool countWrong = type.count != t.count;
 
-                if(type.count < 0) {
-                    //NOTE: Expects an array as input so check that it is an array and is size bigger than zero
-                    if(t.count == 0 || !t.isArray) {
-                        state->parser.logError("Function expects an array");
+                    if(type.count < 0) {
+                        //NOTE: Expects an array as input so check that it is an array and is size bigger than zero
+                        if(t.count == 0 || !t.isArray) {
+                            errorToAssign = "Function expects an array";
+                            functionMatches = false;
+                        }
+                        //NOTE: The function input type is variable length and there is actually at least one number in the return type array
+                        countWrong = false;
                     }
-                    //NOTE: Is variable length and there is actually at least one number
-                    countWrong = false;
+
+                    if(type.type != t.type || countWrong) {
+                        errorToAssign = easy_createString_printf(&globalPerFrameArena, "Expected type: '%s' of size %d, got type: '%s' of size %d at position %d", AstVariableTypeStrings[type.type], type.count,  AstVariableTypeStrings[t.type], t.count, i + 1);
+                        functionMatches = false;
+                    }
                 }
 
-                if(type.type != t.type || countWrong) {
-                    state->parser.logError(easy_createString_printf(&globalPerFrameArena, "Expected type: '%s' of size %d, got type: '%s' of size %d at position %d", AstVariableTypeStrings[type.type], type.count,  AstVariableTypeStrings[t.type], t.count, i));
-                }
             }
+            if(functionMatches) {
+                foundMatch = true;
+            }
+
+            functionType = functionType->overloadFunctions;
+        }
+        if(errorToAssign && !foundMatch) {
+            state->parser.logError(errorToAssign);
         }
     }
     return result;
@@ -312,10 +369,22 @@ TypeCheckerType typeCheckPrefixExpression(CompilerState *state, AstExpression *e
     }
 
     switch(expression->token.type) {
+        case TOKEN_PLUS:
         case TOKEN_MINUS: {
             //NOTE: Negate operation
             if(result.type != AST_VARIABLE_NUMBER) {
-                state->parser.logError("Can only negate number types");
+                state->parser.logError("Can only negate, number types");
+            }
+            if(result.isArray) {
+                state->parser.logError("You can't negate arrays");
+            }
+        } break;
+        case TOKEN_U64_TYPE: {
+            if(result.type != AST_VARIABLE_NUMBER) {
+                state->parser.logError("Can only type cast number types");
+            }
+            if(result.isArray) {
+                state->parser.logError("You can't typecast arrays");
             }
         } break;
         case TOKEN_OPEN_SQUARE_BRACKET: {
@@ -323,6 +392,7 @@ TypeCheckerType typeCheckPrefixExpression(CompilerState *state, AstExpression *e
             result = typeCheckArrayExpression(state, expression);
         } break;
         default: {
+            // state->parser.logError("Can only negate number types");
             assert(false);
         } break;
     }
@@ -342,6 +412,10 @@ TypeCheckerType typeCheckOperatorExpression(CompilerState *state, AstExpression 
         state->parser.logError("Left Hand operand must be a number");
     } else if(rightType.type != AST_VARIABLE_NUMBER) {
         state->parser.logError("Right Hand operand must be a number");
+    } else if(leftType.isArray) {
+        state->parser.logError("Left Hand operand cant be an array");
+    } else if(rightType.isArray) {
+        state->parser.logError("Right Hand operand cant be an array");
     } else {
         switch(expression->token.type) {
             case TOKEN_PLUS:

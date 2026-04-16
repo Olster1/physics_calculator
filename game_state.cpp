@@ -29,12 +29,13 @@ void runCalculator(GameState *gameState, bool addSemiColor = true) {
     }
 }
 
-
-
 void initGameState(GameState *gameState) {
     gameState->initialized = true;
+
+    // gameState->textureAtlas = readTextureAtlas("./assets/texture_atlas.json", "./assets/texture_atlas.png");
     initFont(gameState);
     loadImages(gameState);
+
 
     LoadSettingsFileResult loadResult = loadSettingsFile(&gameState->settingsToSave);
     gameState->settingsToSave = loadResult.settingsToSave;
