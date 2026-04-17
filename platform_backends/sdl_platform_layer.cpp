@@ -149,7 +149,7 @@ int main(int argc, char** argv) {
   srand((unsigned int)time(NULL));
 
   initMemoryArenas();
-  GameState *gameState = allocateGameState();
+  GameState *gameState = allocateGameState(&backendRenderer);
   gameState->aspectRatioWindow_y_over_x = (float)h / (float)w;
 
   lastTicks = SDL_GetTicks();

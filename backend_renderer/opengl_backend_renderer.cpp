@@ -371,7 +371,9 @@ void backend_render_init(SDL_Window *hwnd, BackendRenderer *r) {
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     renderCheckError();
 
-    r->quadTextureShader = loadShader(quadVertexShader, quadTextureFragShader);
+    r->shaders.quadTextureShader = loadShader(quadVertexShader, quadTextureFragShader);
+    r->shaders.fontShader = loadShader(quadVertexShader, sdfFragShader);
+    r->shaders.pixelArtShader = loadShader(quadVertexShader, pixelArtFragShader);
 
     r->quadModel = generateVertexBuffer(global_quadData, 4, global_quadIndices, 6);
     // r->lineModel = generateVertexBuffer(global_lineData, 2, global_lineIndices, 2);
@@ -425,17 +427,19 @@ void drawModels(ModelBuffer *model, Shader *shader, uint32_t textureId, int inst
 
 void processRenderGroup(Renderer *renderer, float2 viewPortSize, BackendRenderer *backendRenderer) {
     float16 currentViewMatrix = float16_identity();
-    Shader *currentShader = &backendRenderer->quadTextureShader;
-    for(int i = 0; i < renderer->commandsCount; ++i) {
-        RenderItem *item = renderer->renderCommands + i;
+    Shader *currentShader = &backendRenderer->shaders.quadTextureShader;
+    for(int i = 0; i < renderer->renderCommands.commandsCount; ++i) {
+        RenderItem *item = renderer->renderCommands.renderCommands + i;
 
         if(item->type == RENDER_TEXTURE) {
             updateInstanceData(backendRenderer->quadModel.instanceBufferhandle, &item->instance, 1*sizeof(InstanceDataWithRotation));
             drawModels(&backendRenderer->quadModel, currentShader, (u32)(uintptr_t)item->texture->handle.handle, 1, currentViewMatrix, float16_identity());
         } else if(item->type == RENDER_VIEW_MATRIX) {
             currentViewMatrix = item->instance.T;
+        } else if(item->type == RENDER_SHADER) {
+            Shader *currentShader = item->shader;
         }
 
     }
-    renderer->commandsCount = 0;
+    renderer->renderCommands.commandsCount = 0;
 }

@@ -1,3 +1,51 @@
+
+static char *sdfFragShader =
+"#version 330\n"
+"in vec4 color_frag;"
+"in vec2 uv_frag; "
+"uniform sampler2D diffuse;"
+"out vec4 colorOut;"
+"void main() {"
+    "float smoothing = 0.01f;"
+    "float boldness = 0.01f;"
+    "vec4 sample = texture(diffuse, uv_frag); "
+
+    "float distance = sample.a;"
+
+    "float alpha = smoothstep(0.5 - boldness, 0.5 + smoothing, distance);"
+
+    "vec4 color = alpha * color_frag;"
+
+    "color.xyz /= color.a;"
+
+    "if(color.a == 0) {"
+        "discard;"
+    "}"
+
+    "colorOut = color;"
+"}";
+
+static char *pixelArtFragShader =
+"#version 330\n"
+"in vec4 color_frag;"
+"in vec2 uv_frag; "
+"uniform sampler2D diffuse;"
+"out vec4 color;"
+"void main() {"
+    "vec2 size = textureSize(diffuse, 0);"
+    "vec2 uv = uv_frag * size;"
+    "vec2 duv = fwidth(uv);"
+    "uv = floor(uv) + 0.5 + clamp(((fract(uv) - 0.5 + duv)/duv), 0.0, 1.0);"
+    "uv /= size;"
+    "vec4 sample = texture(diffuse, uv);"
+
+    "if(sample.w == 0) {"
+        "discard;"
+    "}"
+
+    "color = sample*color_frag;"
+"}";
+
 static char *lineVertexShader =
 "#version 330\n"
 //per vertex variables
@@ -135,31 +183,4 @@ static char *quadFragShader =
 "out vec4 color;"
 "void main() {"
     "color = color_frag;"
-"}";
-
-static char *checkQuadFragShader =
-"#version 330\n"
-"in vec4 color_frag;"
-"in vec2 uv_frag; "
-"uniform sampler2D diffuse;"
-"out vec4 color;"
-
-"void main()"
-"{"
-    // Get the pixel size of the target texture
-    "ivec2 size = textureSize(diffuse, 0);"
-
-    // Compute checker width in pixels (same as w / 16)
-    "int checkerWidth = size.x / 16;"
-
-    // Compute checker indices
-    "int x = int(float(size.x)*uv_frag.x);"
-    "int y = int(float(size.y)*uv_frag.y);"
-
-    "vec3 shadeColor = vec3(0.8);"
-    "if((((y / checkerWidth) % 2) == 0 && ((x / checkerWidth) % 2) == 1) || (((y/ checkerWidth) % 2) == 1 && ((x/ checkerWidth) % 2) == 0)) {"
-        "shadeColor = vec3(0.6);"
-    "}"
-
-    "color = vec4(shadeColor, 1.0);"
 "}";

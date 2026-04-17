@@ -122,3 +122,23 @@ enum EditorColorType {
 };
 
 
+float4 getColorFromPalletteWithToken(Editor_Color_Palette *colorPallette, EasyToken token) {
+    float4 text_color = colorPallette->standard;
+    if(token.type == TOKEN_INTEGER || token.type == TOKEN_FLOAT) {
+        text_color = colorPallette->variable;
+    } else if(token.type == TOKEN_STRING) {
+        text_color = colorPallette->string;
+    } else if(token.type == TOKEN_OPEN_BRACKET || token.type == TOKEN_CLOSE_BRACKET || token.type == TOKEN_OPEN_SQUARE_BRACKET || token.type == TOKEN_CLOSE_SQUARE_BRACKET) {
+        text_color = colorPallette->bracket;
+    } else if(token.type == TOKEN_WORD) {
+        text_color = colorPallette->keyword;
+    } else if(token.isKeyword || token.isType) {
+        text_color = colorPallette->keyword;
+    } else if(token.type == TOKEN_COMMENT) {
+        text_color = colorPallette->comment;
+    } else if(token.type == TOKEN_PREPROCESSOR) {
+        text_color = colorPallette->preprocessor;
+    }
+    return text_color;
+}
+

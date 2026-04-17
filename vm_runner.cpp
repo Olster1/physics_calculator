@@ -478,6 +478,7 @@ bool runCode(VmMachineState *state, GameState *gameState, List<VmOperation> oper
                         newOp.as_int = vmOp_getValue(state, op, OP_CODE_UINT).as_int + vmOp_getValue(state, op1, OP_CODE_UINT).as_int;
                         vmMachine_push(state, newOp);
                     } else {
+                        printf("%s %s\n",OpCodeTypeStrings[op.type], OpCodeTypeStrings[op1.type]);
                         assert(false);
                     }
                 }
@@ -497,6 +498,7 @@ bool runCode(VmMachineState *state, GameState *gameState, List<VmOperation> oper
                         newOp.as_int = vmOp_getValue(state, op1, OP_CODE_UINT).as_int - vmOp_getValue(state, op, OP_CODE_UINT).as_int;
                         vmMachine_push(state, newOp);
                     } else {
+                        printf("%s %s\n",OpCodeTypeStrings[op.type], OpCodeTypeStrings[op1.type]);
                         assert(false);
                     }
                 }
@@ -516,6 +518,7 @@ bool runCode(VmMachineState *state, GameState *gameState, List<VmOperation> oper
                         newOp.as_int = vmOp_getValue(state, op1, OP_CODE_UINT).as_int * vmOp_getValue(state, op, OP_CODE_UINT).as_int;
                         vmMachine_push(state, newOp);
                     } else {
+                        printf("%s %s\n",OpCodeTypeStrings[op.type], OpCodeTypeStrings[op1.type]);
                         assert(false);
                     }
                 }
@@ -535,6 +538,7 @@ bool runCode(VmMachineState *state, GameState *gameState, List<VmOperation> oper
                         newOp.as_int = vmOp_getValue(state, op1, OP_CODE_UINT).as_int / vmOp_getValue(state, op, OP_CODE_UINT).as_int;
                         vmMachine_push(state, newOp);
                     } else {
+                        printf("%s %s\n",OpCodeTypeStrings[op.type], OpCodeTypeStrings[op1.type]);
                         assert(false);
                     }
                 }
@@ -554,6 +558,7 @@ bool runCode(VmMachineState *state, GameState *gameState, List<VmOperation> oper
                         newOp.as_int = pow(vmOp_getValue(state, op1, OP_CODE_UINT).as_int, vmOp_getValue(state, op, OP_CODE_UINT).as_int);
                         vmMachine_push(state, newOp);
                     } else {
+                        printf("%s %s\n",OpCodeTypeStrings[op.type], OpCodeTypeStrings[op1.type]);
                         assert(false);
                     }
 

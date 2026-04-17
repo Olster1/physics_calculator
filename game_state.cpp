@@ -29,12 +29,14 @@ void runCalculator(GameState *gameState, bool addSemiColor = true) {
     }
 }
 
-void initGameState(GameState *gameState) {
+void initGameState(GameState *gameState, BackendRenderer *backendRenderer) {
     gameState->initialized = true;
 
-    // gameState->textureAtlas = readTextureAtlas("./assets/texture_atlas.json", "./assets/texture_atlas.png");
+    gameState->renderer.shaders = &backendRenderer->shaders;
+
+    gameState->textureAtlas = readTextureAtlas("./assets/texture_atlas.json", "./assets/texture_atlas.png");
     initFont(gameState);
-    loadImages(gameState);
+    loadImages(&gameState->imageFiles, &gameState->textureAtlas);
 
 
     LoadSettingsFileResult loadResult = loadSettingsFile(&gameState->settingsToSave);
@@ -62,9 +64,9 @@ void initGameState(GameState *gameState) {
 
 }
 
-GameState *allocateGameState() {
+GameState *allocateGameState(BackendRenderer *backendRenderer) {
     GameState * result = pushStruct(&globalLongTermArena, GameState);
-    initGameState(result);
+    initGameState(result, backendRenderer);
     return result;
 
 }

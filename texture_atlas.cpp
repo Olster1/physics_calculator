@@ -64,22 +64,39 @@ struct TextureAtlas {
     }
 
 
-    Texture textureAtlas_getItemAsTexture(TextureAtlas *atlas, char *name) {
-        Texture t = {};
+    Texture *textureAtlas_getItemAsTexture(TextureAtlas *atlas, char *name, Arena *arena) {
+        Texture *t = pushStruct(arena, Texture);
         AtlasAsset *i = textureAtlas_getItem(atlas, name);
         assert(i);
         if(i) {
             //NOTE: Fill out the texture details
-            t.handle = atlas->texture->handle;
+            t->handle = atlas->texture->handle;
             float wPercent = (i->uv.z - i->uv.x);
             float hPercent = (i->uv.w - i->uv.y);
-            t.width = atlas->texture->width*wPercent;
-            t.height = atlas->texture->height*hPercent;
+            t->width = atlas->texture->width*wPercent;
+            t->height = atlas->texture->height*hPercent;
             // t.aspectRatio_h_over_w = i->aspectRatio_h_over_w;
-            t.uv = i->uv;
+            t->uv = i->uv;
         }
         return t;
     }
+
+float textureAtlas_getNextFloat(EasyTokenizer *tokenizer) {
+    EasyToken t = lexGetNextToken(tokenizer);
+    float result = 0;
+    if(t.type == TOKEN_FLOAT) {
+        result = t.floatVal;
+    } else if(t.type == TOKEN_MINUS) {
+        t = lexSeeNextToken(tokenizer);
+        if(t.type == TOKEN_FLOAT) {
+            result = -1 * t.floatVal;
+            //NOTE: Consume the token
+            lexGetNextToken(tokenizer);
+        }
+    }
+    return result;
+}
+
 
     TextureAtlas readTextureAtlas(char *jsonFileName, char *textureFileName) {
         TextureAtlas result = {};
@@ -116,18 +133,11 @@ struct TextureAtlas {
                 assert(t.type == TOKEN_STRING);
                 t = lexGetNextToken(&tokenizer);
                 assert(t.type == TOKEN_COLON);
-                t = lexGetNextToken(&tokenizer);
-                assert(t.type == TOKEN_FLOAT);
-                uv.x = t.floatVal;
-                t = lexGetNextToken(&tokenizer);
-                assert(t.type == TOKEN_FLOAT);
-                uv.y = t.floatVal;
-                t = lexGetNextToken(&tokenizer);
-                assert(t.type == TOKEN_FLOAT);
-                uv.z = t.floatVal;
-                t = lexGetNextToken(&tokenizer);
-                assert(t.type == TOKEN_FLOAT);
-                uv.w = t.floatVal;
+
+                uv.x = textureAtlas_getNextFloat(&tokenizer);
+                uv.y = textureAtlas_getNextFloat(&tokenizer);
+                uv.z = textureAtlas_getNextFloat(&tokenizer);
+                uv.w = textureAtlas_getNextFloat(&tokenizer);
 
                 textureAtlas_addItem(&result, assetName, uv);
             }

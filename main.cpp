@@ -1,57 +1,16 @@
 #include "./includes.h"
 
 Rect2f renderTextAsTokens(GameState *gameState, char *string, float2 at, float2 plane, float scaleFactor = 1.0f, int cursorLocation = -1) {
-    Rect2f totalBounds = make_rect2f_inverse_infinity();
-    EasyTokenizer tokenizer = lexBeginParsing(string, EASY_LEX_OPTION_NONE);
+    float2 cursorP = {};
+    Rect2f totalBounds = renderText(&gameState->renderer, &gameState->mainFont, string, at, scaleFactor*BODY_FONT_SCALE, MY_COLOR_WHITE, true, cursorLocation, &cursorP, gameState->colorPallette);
 
-    float2 startP = at;
-
-    Rect2f cursorRect = {};
-    bool parsing = true;
-    int index = 0;
-    while(parsing) {
-
-        EasyToken token = lexGetNextToken(&tokenizer);
-        if(token.type == TOKEN_NULL_TERMINATOR) {
-            parsing = false;
-        } else {
-
-            float4 text_color = gameState->colorPallette->standard;
-            if(token.type == TOKEN_INTEGER || token.type == TOKEN_FLOAT) {
-                text_color = gameState->colorPallette->variable;
-            } else if(token.type == TOKEN_STRING) {
-                text_color = gameState->colorPallette->string;
-            } else if(token.type == TOKEN_OPEN_BRACKET || token.type == TOKEN_CLOSE_BRACKET || token.type == TOKEN_OPEN_SQUARE_BRACKET || token.type == TOKEN_CLOSE_SQUARE_BRACKET) {
-                text_color = gameState->colorPallette->bracket;
-            } else if(token.type == TOKEN_WORD) {
-                text_color = gameState->colorPallette->keyword;
-            } else if(token.isKeyword || token.isType) {
-                text_color = gameState->colorPallette->keyword;
-            } else if(token.type == TOKEN_COMMENT) {
-                text_color = gameState->colorPallette->comment;
-            } else if(token.type == TOKEN_PREPROCESSOR) {
-                text_color = gameState->colorPallette->preprocessor;
-            }
-
-            char *strToDraw = nullTerminateArena(token.at, token.size, &globalPerFrameArena);
-            Rect2f bounds = renderText(&gameState->renderer, &gameState->mainFont, strToDraw, at, scaleFactor*BODY_FONT_SCALE, text_color, true, cursorLocation - index, &cursorRect);
-            at.x += get_scale_rect2f(bounds).x;
-
-            totalBounds = rect2f_union(totalBounds, bounds);
-
-            index += token.size;
-
-        }
-    }
-
-    // Rect2f bounds = renderText(&gameState->renderer, &gameState->mainFont, string, at, scaleFactor*BODY_FONT_SCALE, MY_COLOR_BLACK, true, cursorLocation, &cursorRect);
     //NOTE: Draw the cursor location
     if(cursorLocation >= 0) {
         float lineHeight = 5;
         if(cursorLocation == 0) {
-            cursorRect.maxX = startP.x;
+            cursorP.x = at.x;
         }
-        pushRenderTexture(&gameState->renderer, make_transformX_float2(make_float2(cursorRect.maxX, -0.5f*plane.y + 0.5f*lineHeight), make_float2(0.1, lineHeight)), gameState->imageFiles.whiteImage, MY_COLOR_PASTEL_LAVENDER);
+        pushRenderTexture(&gameState->renderer, make_transformX_float2(make_float2(cursorP.x, -0.5f*plane.y + 0.5f*lineHeight), make_float2(0.1, lineHeight)), gameState->imageFiles.whiteImage, gameState->colorPallette->preprocessor);
     }
     return totalBounds;
 }
@@ -61,6 +20,8 @@ void updateGame(GameState *gameState) {
 
     backend_render_clearFrame(gameState->colorPallette->background);
 
+    pushRenderShader(&gameState->renderer, &gameState->renderer.shaders->pixelArtShader);
+
     float scaleFactor = 0.1f;
     float2 plane = make_float2(scaleFactor*gameState->settingsToSave.windowX, scaleFactor*gameState->settingsToSave.windowY);
     float16 viewT = make_ortho_matrix_origin_center(plane.x, plane.y, MATH_3D_NEAR_CLIP_PlANE, MATH_3D_FAR_CLIP_PlANE);
@@ -68,7 +29,6 @@ void updateGame(GameState *gameState) {
     float2 mouseWorldP = getWorldPFromMouse(gameState, plane, true);
 
     pushRenderView(&gameState->renderer, viewT);
-
 
     if(gameState->enterPressed && easyString_getStringLength_utf8(gameState->stringBuffer.string) > 0) {
         //NOTE: We handle clear the buffer here instead of trying to parse the command since it's not a function it's just one word
@@ -85,20 +45,7 @@ void updateGame(GameState *gameState) {
     float marginSpace = 5;
     float2 maxBufferSize = make_float2(0, 0);
 
-    //NOTE: Draw the input buffer
-    pushRenderTexture(&gameState->renderer, make_transformX_float2(make_float2(0, -0.5f*plane.y + 0.5f*lineHeight), make_float2(plane.x, lineHeight)), gameState->imageFiles.whiteImage, gameState->colorPallette->backgroundVariation);
-    if(gameState->stringBuffer.string) {
-        float sideOffset = 1;
-        float2 at = make_float2(-0.5f*plane.x - gameState->bufferOffset.x + sideOffset, -0.5f*plane.y + 1 -  gameState->bufferOffset.y);
 
-        Rect2f dim = renderTextAsTokens(gameState, gameState->stringBuffer.string, at, plane, 1.0f, gameState->stringBuffer.cursor);
-
-
-        if(get_scale_rect2f(dim).x > maxBufferSize.x) {
-            maxBufferSize.x = get_scale_rect2f(dim).x;
-        }
-        maxBufferSize.y += lineHeight;
-    }
 
     //NOTE: Draw radians or degrees mode
     {
@@ -137,6 +84,19 @@ void updateGame(GameState *gameState) {
         if(get_scale_rect2f(dim).x > maxBufferSize.x) {
             maxBufferSize.x = get_scale_rect2f(dim).x;
         }
+    }
+    //NOTE: Draw the input buffer
+    pushRenderTexture(&gameState->renderer, make_transformX_float2(make_float2(0, -0.5f*plane.y + 0.5f*lineHeight), make_float2(plane.x, lineHeight)), gameState->imageFiles.whiteImage, gameState->colorPallette->backgroundVariation);
+    if(gameState->stringBuffer.string) {
+        float sideOffset = 1;
+        float2 at = make_float2(-0.5f*plane.x + sideOffset, -0.5f*plane.y + 1);
+
+        Rect2f dim = renderTextAsTokens(gameState, gameState->stringBuffer.string, at, plane, 1.0f, gameState->stringBuffer.cursor);
+
+        if(get_scale_rect2f(dim).x > maxBufferSize.x) {
+            maxBufferSize.x = get_scale_rect2f(dim).x;
+        }
+        maxBufferSize.y += lineHeight;
     }
 
     //NOTE: Render the errors

@@ -1,4 +1,4 @@
-void render_mergeRenderers(Renderer *a, Renderer *b) {
+void render_mergeRendererCommands(RendererCommands *a, RendererCommands *b) {
     if(a && b && (a->commandsCount + b->commandsCount) <= arrayCount(a->renderCommands)) {
         easyPlatform_copyMemory(a->renderCommands + a->commandsCount, b->renderCommands, sizeof(RenderItem)*b->commandsCount);
         a->commandsCount += b->commandsCount;
@@ -15,8 +15,8 @@ void pushRenderTexture(Renderer *renderer, TransformX T, Texture *texture, float
     item.type = RENDER_TEXTURE;
     item.instance.color = color;
     item.instance.uv = texture->uv;
-    if(renderer->commandsCount < arrayCount(renderer->renderCommands)) {
-        renderer->renderCommands[renderer->commandsCount++] = item;
+    if(renderer->renderCommands.commandsCount < arrayCount(renderer->renderCommands.renderCommands)) {
+        renderer->renderCommands.renderCommands[renderer->renderCommands.commandsCount++] = item;
     } else {
         assert(false);
     }
@@ -30,19 +30,30 @@ void pushRenderGlyph(Renderer *renderer, float3 pos, float3 scale, float4 uvCoor
     item.type = RENDER_TEXTURE;
     item.instance.color = color;
     item.instance.uv = uvCoords;
-    if(renderer->commandsCount < arrayCount(renderer->renderCommands)) {
-        renderer->renderCommands[renderer->commandsCount++] = item;
+    if(renderer->renderCommands.commandsCount < arrayCount(renderer->renderCommands.renderCommands)) {
+        renderer->renderCommands.renderCommands[renderer->renderCommands.commandsCount++] = item;
     } else {
         assert(false);
     }
 }
 
 void pushRenderView(Renderer *renderer, float16 T) {
-    if(renderer->commandsCount < arrayCount(renderer->renderCommands)) {
+    if(renderer->renderCommands.commandsCount < arrayCount(renderer->renderCommands.renderCommands)) {
         RenderItem item = {};
         item.type = RENDER_VIEW_MATRIX;
         item.instance.T = T;
-        renderer->renderCommands[renderer->commandsCount++] = item;
+        renderer->renderCommands.renderCommands[renderer->renderCommands.commandsCount++] = item;
+    } else {
+        assert(false);
+    }
+}
+
+void pushRenderShader(Renderer *renderer, Shader *shader) {
+    if(renderer->renderCommands.commandsCount < arrayCount(renderer->renderCommands.renderCommands)) {
+        RenderItem item = {};
+        item.type = RENDER_SHADER;
+        item.shader = shader;
+        renderer->renderCommands.renderCommands[renderer->renderCommands.commandsCount++] = item;
     } else {
         assert(false);
     }

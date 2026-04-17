@@ -1,7 +1,3 @@
-struct ImageFiles {
-    Texture *whiteImage;
-};
-
 enum InteractionMode {
     INTERACTION_MODE_DEFAULT,
     INTERACTION_MODE_PICK_THEME,

@@ -59,13 +59,6 @@ struct ModelBuffer {
     int indexCount;
 };
 
-struct BackendRenderer {
-    Shader quadTextureShader;
-
-    ModelBuffer quadModel;
-    ModelBuffer lineModel;
-};
-
 static Texture *global_white_image;
 
 enum RenderItemType {
@@ -73,6 +66,7 @@ enum RenderItemType {
     RENDER_VIEW_MATRIX,
     RENDER_RECT,
     RENDER_GLYPH,
+    RENDER_SHADER,
 };
 
 struct InstanceDataWithRotation {
@@ -83,11 +77,29 @@ struct InstanceDataWithRotation {
 
 struct RenderItem {
     RenderItemType type;
-    Texture *texture;
     InstanceDataWithRotation instance;
+    Texture *texture;
+    Shader *shader;
+};
+
+struct RendererCommands {
+    int commandsCount;
+    RenderItem renderCommands[16384];
+};
+
+struct Shaders {
+    Shader quadTextureShader;
+    Shader fontShader;
+    Shader pixelArtShader;
+};
+
+struct BackendRenderer {
+    Shaders shaders;
+    ModelBuffer quadModel;
+    ModelBuffer lineModel;
 };
 
 struct Renderer {
-    int commandsCount;
-    RenderItem renderCommands[16384];
+    Shaders *shaders;
+    RendererCommands renderCommands;
 };

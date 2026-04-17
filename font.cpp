@@ -2,8 +2,8 @@
 #include "./libs/stb_truetype.h"
 
 struct Font {
-    Texture *texture; //NOTE: Handle to the font atlas texture on the GPU  
-    stbtt_bakedchar glyphData[255]; //NOTE: Meta data for each glyph like width and height and the uv coords in the texture atlas. In this case it's limited to be 255 characters per font. 
+    Texture *texture; //NOTE: Handle to the font atlas texture on the GPU
+    stbtt_bakedchar glyphData[255]; //NOTE: Meta data for each glyph like width and height and the uv coords in the texture atlas. In this case it's limited to be 255 characters per font.
     float fontHeight;
     int startOffset;
     float2 fontAtlasDim;
@@ -23,14 +23,15 @@ Font initFontAtlas(unsigned char *ttfBuffer) {
     assert(tempBitmap);
 
     result.fontHeight = 64.0;
-    result.startOffset = 32;
+    result.startOffset = 0;
+    int numberOfCharacters = 128;
     //NOTE:  32, 96 values denote the main ASCI alphabet - starting at [SPACE] and going to the end of the asci table. The space is important because it tells us the width of a space.
-    int r = stbtt_BakeFontBitmap(ttfBuffer, 0, result.fontHeight, tempBitmap, tempBitmapWidth, tempBitmapHeight, 32, 96, result.glyphData);
+    int r = stbtt_BakeFontBitmap(ttfBuffer, 0, result.fontHeight, tempBitmap, tempBitmapWidth, tempBitmapHeight, result.startOffset, numberOfCharacters, result.glyphData);
 
     if(r == 0) {
         printf("ERROR: Couldn't render font atlas\n");
         assert(false);
-    } 
+    }
 
     u32 *tempBitmap4Bytes = pushArray(&globalPerFrameArena, tempBitmapWidth*tempBitmapHeight, u32);
 
@@ -49,66 +50,77 @@ Font initFontAtlas(unsigned char *ttfBuffer) {
 }
 
 //NOTE: Start is the baseline and starting horizontal point
-Rect2f renderText(Renderer *renderer, Font *font, char *nullTerminatedString, float2 start, float scale, float4 color = make_float4(1, 1, 1, 1), bool render = true, int cursorIndex = -1, Rect2f *cursorSize = 0) {
+Rect2f renderText(Renderer *renderer, Font *font, char *nullTerminatedString, float2 start, float scale, float4 color_ = make_float4(1, 1, 1, 1), bool render = true, int cursorIndex = -1, float2 *cursorP = 0, Editor_Color_Palette *colorPallette = 0) {
     float x = 0;
     float y = 0;
 
     Rect2f bounds = make_rect2f_inverse_infinity();
     int charIndex = 0;
 
-    while (*nullTerminatedString) {
-        if(*nullTerminatedString != '\n') {
-            if (*nullTerminatedString >= 32 && *nullTerminatedString < 126) {
+    bool parsing = true;
 
-                stbtt_aligned_quad q  = {};
+    EasyTokenizer tokenizer = lexBeginParsing(nullTerminatedString, EASY_LEX_OPTION_NONE);
 
-                float beginY = y;
-                float lastX = x;
-                float lastY = y;
-
-                int index = *nullTerminatedString - font->startOffset;
-                stbtt_GetBakedQuad(font->glyphData, font->fontAtlasDim.x, font->fontAtlasDim.y, index, &x, &y, &q, 1);
-
-                //NOTE: Because our renderer is center point based be get the middle of the glyph
-                float width = scale*(q.x1 - q.x0);
-                float height = scale*(q.y1 - q.y0);
-
-                float x1 = scale*q.x0 + 0.5f*width;
-                float y1 = scale*q.y0 + 0.5f*height;
-                y1 = -y1; //NOTE: Flip the cooridnates because stb-font gives y axis positive down but our renderer is opposite
-
-                x1 += start.x;
-                y1 += start.y;
-                
-                float4 uvCoords = make_float4(q.s0, q.t0, q.s1, q.t1);
-
-                float3 glyphScale = make_float3(width, height, 1);
-
-                if(*nullTerminatedString == ' ') {
-                    //NOTE: Get the width from the advance
-                    glyphScale.x = scale*(x - lastX);
-                    glyphScale.y = scale*(y - lastY);
-
-                }
-                Rect2f b = make_rect2f_center_dim(make_float2(x1, y1), glyphScale.xy);
-                
-                if(cursorSize && charIndex == (cursorIndex - 1)) {
-                    *cursorSize = b;
-                }
-                
-                bounds = rect2f_union(bounds, b);
-
-                if(render) {
-                    pushRenderGlyph(renderer, make_float3(x1, y1, 1), glyphScale, uvCoords, color, font->texture);
-                }
-            }
+    while(parsing) {
+        EasyToken token = lexGetNextToken(&tokenizer);
+        if(token.type == TOKEN_NULL_TERMINATOR) {
+            parsing = false;
         } else {
-            //NOTE: Move down a line
-            x = 0;
-            y -= font->fontHeight;
+            float4 color = color_;
+            if(colorPallette) {
+                color = getColorFromPalletteWithToken(colorPallette, token);
+            }
+
+            for(int i = 0; i < token.size; ++i) {
+                char characterToRender = token.at[i];
+
+                if(characterToRender != '\n') {
+                    if (characterToRender >= 32 && characterToRender < 126) {
+
+                        stbtt_aligned_quad q  = {};
+
+                        float beginY = y;
+                        float lastX = x;
+                        float lastY = y;
+
+                        int index = characterToRender - font->startOffset;
+                        stbtt_GetBakedQuad(font->glyphData, font->fontAtlasDim.x, font->fontAtlasDim.y, index, &x, &y, &q, 1);
+
+                        //NOTE: Because our renderer is center point based be get the middle of the glyph
+                        float width = scale*(q.x1 - q.x0);
+                        float height = scale*(q.y1 - q.y0);
+
+                        float x1 = scale*q.x0 + 0.5f*width;
+                        float y1 = scale*q.y0 + 0.5f*height;
+                        y1 = -y1; //NOTE: Flip the cooridnates because stb-font gives y axis positive down but our renderer is opposite
+
+                        x1 += start.x;
+                        y1 += start.y;
+
+                        float4 uvCoords = make_float4(q.s0, q.t0, q.s1, q.t1);
+
+                        float3 glyphScale = make_float3(width, height, 1);
+
+                        Rect2f b = make_rect2f_center_dim(make_float2(x1, y1), glyphScale.xy);
+
+                        if(cursorP && charIndex == (cursorIndex - 1)) {
+                            *cursorP = make_float2(scale*(x) + start.x, scale*y + start.y);
+                        }
+
+                        bounds = rect2f_union(bounds, b);
+
+                        if(render) {
+                            pushRenderGlyph(renderer, make_float3(x1, y1, 1), glyphScale, uvCoords, color, font->texture);
+                        }
+                    }
+                } else {
+                    //NOTE: Move down a line
+                    x = 0;
+                    y -= font->fontHeight;
+                }
+                charIndex++;
+            }
         }
-        charIndex++;
-        nullTerminatedString++;
     }
 
     return bounds;

@@ -129,8 +129,8 @@ void backend_render_clearFrame(float4 color) {
 void processRenderGroup(Renderer *renderer, float2 viewPortSize) {
     SDL_Renderer *sdlRenderer = global_sdl_renderer;
     float16 currentViewMatrix = float16_identity();
-    for(int i = 0; i < renderer->commandsCount; ++i) {
-        RenderItem *item = renderer->renderCommands + i;
+    for(int i = 0; i < renderer->renderCommands.commandsCount; ++i) {
+        RenderItem *item = renderer->renderCommands.renderCommands + i;
 
         if(item->type == RENDER_RECT) {
             SDL_SetRenderDrawColor(sdlRenderer, item->color.x*255, item->color.y*255, item->color.z*255, item->color.w*255);
