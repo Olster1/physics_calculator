@@ -134,6 +134,34 @@ void initCompiler(CompilerState *state) {
         state->functionCalls.insert("sqr", func);
     }
     {
+        InterpreterFunction func = InterpreterFunction::init({ .type = OP_CODE_PRINT_AS_BINARY });
+        func.pushArgument({.type = AST_VARIABLE_NUMBER, .count = 1});
+        func.setReturnType({.type = AST_VARIABLE_U64, .count = 1});
+
+        //NOTE: Overloaded
+        InterpreterFunction *func2 = pushStruct(&globalPerFrameArena, InterpreterFunction);
+        *func2 = InterpreterFunction::init({ .type = OP_CODE_PRINT_AS_BINARY });
+        func2->pushArgument({.type = AST_VARIABLE_U64, .count = 1});
+        func2->setReturnType({.type = AST_VARIABLE_U64, .count = 1});
+        func.overloadFunctions = func2;
+
+        state->functionCalls.insert("binary", func);
+    }
+    {
+        InterpreterFunction func = InterpreterFunction::init({ .type = OP_CODE_PRINT_AS_HEXADECIMAL });
+        func.pushArgument({.type = AST_VARIABLE_NUMBER, .count = 1});
+        func.setReturnType({.type = AST_VARIABLE_U64, .count = 1});
+
+        //NOTE: Overloaded
+        InterpreterFunction *func2 = pushStruct(&globalPerFrameArena, InterpreterFunction);
+        *func2 = InterpreterFunction::init({ .type = OP_CODE_PRINT_AS_HEXADECIMAL });
+        func2->pushArgument({.type = AST_VARIABLE_U64, .count = 1});
+        func2->setReturnType({.type = AST_VARIABLE_U64, .count = 1});
+        func.overloadFunctions = func2;
+
+        state->functionCalls.insert("hex", func);
+    }
+    {
         InterpreterFunction func = InterpreterFunction::init({ .type = OP_CODE_SQRT });
         func.pushArgument({.type = AST_VARIABLE_NUMBER, .count = 1});
         func.setReturnType({.type = AST_VARIABLE_NUMBER, .count = 1});

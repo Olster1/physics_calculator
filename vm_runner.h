@@ -36,6 +36,8 @@
     FUNC(OP_CODE_SUMMATION) \
     FUNC(OP_CODE_DECLARE) \
     FUNC(OP_CODE_CLEAR) \
+    FUNC(OP_CODE_PRINT_AS_BINARY) \
+    FUNC(OP_CODE_PRINT_AS_HEXADECIMAL) \
     FUNC(OP_CODE_ERROR)
 
 
@@ -56,12 +58,21 @@ struct StackVariable {
     char *name;
     u64 bytesOffset;
     int count; //NOTE: If more than 1 it's an array variable
+    OpCode type; //NOTE: could be a Number array of size 1, so we need this aswell
 
     StackVariable *next; //NOTE: Linked list pointer
 };
 
+//NOTE: If you want to print the value in a certain format
+enum PrintFormatType {
+    VM_PRINT_FORMAT_DEFAULT,
+    VM_PRINT_FORMAT_BINARY,
+    VM_PRINT_FORMAT_HEX,
+};
+
 struct VmOperation {
     OpCode type;
+    PrintFormatType printFormat;
     union {
         int64_t as_int;
         uint64_t as_uint;
@@ -73,7 +84,8 @@ struct VmOperation {
 
 struct VmNumberType {
     OpCode type;
-     union {
+    PrintFormatType printFormat;
+    union {
         int64_t as_int;
         uint64_t as_uint;
         double  as_float;

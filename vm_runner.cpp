@@ -1,3 +1,39 @@
+char *print_binary_formatted(u64 n) {
+    if (n == 0) {
+        return easy_createString_printf(&globalPerFrameArena, "0000");
+    }
+
+    int total_bits = sizeof(n) * 8;
+    int highest_bit = 0;
+
+    // 1. Find the highest set bit
+    for (int i = total_bits - 1; i >= 0; i--) {
+        if ((n >> i) & 1) {
+            highest_bit = i;
+            break;
+        }
+    }
+
+    // 2. Round up to the start of the 4-bit nibble boundary
+    int start_bit = ((highest_bit / 4) + 1) * 4 - 1;
+
+    char *result = "";
+
+    // 3. Build the string using your arena-based printf
+    for (int i = start_bit; i >= 0; i--) {
+        int bit = (n >> i) & 1;
+
+        result = easy_createString_printf(&globalPerFrameArena, "%s%d", result, bit);
+
+        // Add space after every 4 bits, except the very last bit
+        if (i % 4 == 0 && i != 0) {
+            result = easy_createString_printf(&globalPerFrameArena, "%s  ", result);
+        }
+    }
+
+    return result;
+}
+
 StackVariable *getStackVariable(VmMachineState *state, char *name) {
     int index = getIndexForVariableMap(name);
 
@@ -29,7 +65,7 @@ VmOperation vmMachine_push(VmMachineState *state, VmOperation operation) {
     return result;
 }
 
-void pushStackVariable(VmMachineState *state, char *name, VmOperation *values, int count) {
+void pushStackVariable(VmMachineState *state, char *name, VmOperation *values, int count, OpCode type) {
     StackVariable *existingVar = getStackVariable(state, name);
 
     if(existingVar) {
@@ -38,6 +74,7 @@ void pushStackVariable(VmMachineState *state, char *name, VmOperation *values, i
             VmOperation *dec = (VmOperation *)(state->stackBase + existingVar->bytesOffset);
             assert(dec->type == OP_CODE_FLOAT || dec->type == OP_CODE_UINT);
             easyPlatform_copyMemory(dec, values, sizeof(VmOperation)*count);
+            existingVar->type = type;
         } else {
             //NOTE: Changing size of array so reallocate the array on the stack
              existingVar->count = count;
@@ -45,10 +82,12 @@ void pushStackVariable(VmMachineState *state, char *name, VmOperation *values, i
              for(int i = 0; i < count; ++i) {
                 vmMachine_push(state, values[i]);
             }
+            existingVar->type = type;
         }
     } else {
          StackVariable *var = pushStruct(&globalPerFrameArena, StackVariable);
          var->count = count;
+         var->type = type;
 
         var->name = name;
         var->bytesOffset = (u64)(state->at - state->stackBase);
@@ -96,15 +135,17 @@ VmNumberType vmOp_getValue(VmMachineState *state, VmOperation op, OpCode desired
         StackVariable *var = getStackVariable(state, op.name);
         assert(var);
         result.count = var->count;
-        result.type = OP_CODE_FLOAT;
 
-        if(result.count > 1) {
+        if(result.count > 1 || var->type == OP_CODE_NUMBER_ARRAY) {
+            result.type = OP_CODE_NUMBER_ARRAY;
+            assert(var->type == OP_CODE_NUMBER_ARRAY);
             //NOTE: Is array type so load all the values on the stack
             VmOperation* start = (VmOperation *)(state->stackBase + var->bytesOffset);
             for(int i = 0; i < result.count; ++i) {
                 vmMachine_push(state, start[i]);
             }
         } else {
+            result.type = OP_CODE_FLOAT;
             assert(result.count == 1);
             VmOperation *dec = (VmOperation *)(state->stackBase + var->bytesOffset);
             assert(dec->type == OP_CODE_FLOAT || dec->type == OP_CODE_UINT);
@@ -112,7 +153,7 @@ VmNumberType vmOp_getValue(VmMachineState *state, VmOperation op, OpCode desired
         }
     } else if(op.type == OP_CODE_NUMBER_ARRAY) {
         // assert(op.type == OP_CODE_FLOAT);
-        result.type = OP_CODE_FLOAT;
+        result.type = OP_CODE_NUMBER_ARRAY;
         result.count = (double)op.as_float;
     } else if(op.type == OP_CODE_STRING) {
         result.type = OP_CODE_STRING;
@@ -121,6 +162,7 @@ VmNumberType vmOp_getValue(VmMachineState *state, VmOperation op, OpCode desired
         state->panic = "Expected a number of variable";
         assert(false);
     }
+    result.printFormat = op.printFormat;
     return result;
 }
 
@@ -202,7 +244,7 @@ bool runCode(VmMachineState *state, GameState *gameState, List<VmOperation> oper
                     VmNumberType value = popAndGetValueNumber(state, OP_CODE_NONE);
 
                     StringBuffer b = {};
-                    if(value.count > 1) {
+                    if(value.type == OP_CODE_NUMBER_ARRAY || value.count > 1) {
                         assert(!value.name);
                         b.string = "[";
                         for(int i = 0; i < value.count; ++i) {
@@ -219,7 +261,14 @@ bool runCode(VmMachineState *state, GameState *gameState, List<VmOperation> oper
                         } else if(value.type == OP_CODE_FLOAT){
                             b.string = easy_createString_printf(&globalPerVmRunLifetime, "%f", value.as_float);
                         } else if(value.type == OP_CODE_UINT){
-                            b.string = easy_createString_printf(&globalPerVmRunLifetime, "%lu", value.as_int);
+                            if(value.printFormat == VM_PRINT_FORMAT_BINARY) {
+                                b.string = easy_createString_printf(&globalPerVmRunLifetime, "%s", print_binary_formatted(value.as_int));
+                            } else if(value.printFormat == VM_PRINT_FORMAT_HEX) {
+                                b.string = easy_createString_printf(&globalPerVmRunLifetime, "0x%x", value.as_int);
+                            } else {
+                                b.string = easy_createString_printf(&globalPerVmRunLifetime, "%lu", value.as_int);
+                            }
+
                         } else {
                             assert(false);
                         }
@@ -293,6 +342,16 @@ bool runCode(VmMachineState *state, GameState *gameState, List<VmOperation> oper
                 vmMachine_push(state, newOp);
                 break;
             }
+            case OP_CODE_PRINT_AS_BINARY: {
+                VmOperation op = vmMachine_pop(state);
+                op.printFormat = VM_PRINT_FORMAT_BINARY;
+                vmMachine_push(state, op);
+            } break;
+            case OP_CODE_PRINT_AS_HEXADECIMAL: {
+                VmOperation op = vmMachine_pop(state);
+                op.printFormat = VM_PRINT_FORMAT_HEX;
+                vmMachine_push(state, op);
+            } break;
             case OP_CODE_QUADRATIC: {
                 double c = popAndGetValueNumber(state, OP_CODE_FLOAT).as_float;
                 double b = popAndGetValueNumber(state, OP_CODE_FLOAT).as_float;
@@ -409,12 +468,18 @@ bool runCode(VmMachineState *state, GameState *gameState, List<VmOperation> oper
                 VmOperation op1 = vmMachine_pop(state);
                 if(!vm_isError(op) && !vm_isError(op1)) {
                     VmOperation newOp = {};
-
                     //TODO: This could be a different instruction for float vs int ADD
-                    newOp.type = OP_CODE_FLOAT;
-                    newOp.as_float = vmOp_getValue(state, op, OP_CODE_FLOAT).as_float + vmOp_getValue(state, op1, OP_CODE_FLOAT).as_float;
-                    vmMachine_push(state, newOp);
-                    // printf("%f\n", newOp.value_);
+                    if(op.type == OP_CODE_FLOAT || op1.type == OP_CODE_FLOAT) {
+                        newOp.type = OP_CODE_FLOAT;
+                        newOp.as_float = vmOp_getValue(state, op, OP_CODE_FLOAT).as_float + vmOp_getValue(state, op1, OP_CODE_FLOAT).as_float;
+                        vmMachine_push(state, newOp);
+                    } else if(op.type == OP_CODE_UINT && op1.type == OP_CODE_UINT) {
+                        newOp.type = OP_CODE_UINT;
+                        newOp.as_int = vmOp_getValue(state, op, OP_CODE_UINT).as_int + vmOp_getValue(state, op1, OP_CODE_UINT).as_int;
+                        vmMachine_push(state, newOp);
+                    } else {
+                        assert(false);
+                    }
                 }
                 break;
             }
@@ -423,10 +488,17 @@ bool runCode(VmMachineState *state, GameState *gameState, List<VmOperation> oper
                 VmOperation op1 = vmMachine_pop(state);
                 if(!vm_isError(op) && !vm_isError(op1)) {
                     VmOperation newOp = {};
-                    newOp.type = OP_CODE_FLOAT;
-                    newOp.as_float = vmOp_getValue(state, op1, OP_CODE_FLOAT).as_float - vmOp_getValue(state, op, OP_CODE_FLOAT).as_float;
-                    vmMachine_push(state, newOp);
-                    // printf("%f\n", newOp.value_);
+                    if(op.type == OP_CODE_FLOAT || op1.type == OP_CODE_FLOAT) {
+                        newOp.type = OP_CODE_FLOAT;
+                        newOp.as_float = vmOp_getValue(state, op1, OP_CODE_FLOAT).as_float - vmOp_getValue(state, op, OP_CODE_FLOAT).as_float;
+                        vmMachine_push(state, newOp);
+                    } else if(op.type == OP_CODE_UINT && op1.type == OP_CODE_UINT) {
+                        newOp.type = OP_CODE_UINT;
+                        newOp.as_int = vmOp_getValue(state, op1, OP_CODE_UINT).as_int - vmOp_getValue(state, op, OP_CODE_UINT).as_int;
+                        vmMachine_push(state, newOp);
+                    } else {
+                        assert(false);
+                    }
                 }
                 break;
             }
@@ -435,10 +507,17 @@ bool runCode(VmMachineState *state, GameState *gameState, List<VmOperation> oper
                 VmOperation op1 = vmMachine_pop(state);
                 if(!vm_isError(op) && !vm_isError(op1)) {
                     VmOperation newOp = {};
-                    newOp.type = OP_CODE_FLOAT;
-                    newOp.as_float = vmOp_getValue(state, op, OP_CODE_FLOAT).as_float * vmOp_getValue(state, op1, OP_CODE_FLOAT).as_float;
-                    vmMachine_push(state, newOp);
-                    // printf("%f\n", newOp.value_);
+                    if(op.type == OP_CODE_FLOAT || op1.type == OP_CODE_FLOAT) {
+                        newOp.type = OP_CODE_FLOAT;
+                        newOp.as_float = vmOp_getValue(state, op1, OP_CODE_FLOAT).as_float * vmOp_getValue(state, op, OP_CODE_FLOAT).as_float;
+                        vmMachine_push(state, newOp);
+                    } else if(op.type == OP_CODE_UINT && op1.type == OP_CODE_UINT) {
+                        newOp.type = OP_CODE_UINT;
+                        newOp.as_int = vmOp_getValue(state, op1, OP_CODE_UINT).as_int * vmOp_getValue(state, op, OP_CODE_UINT).as_int;
+                        vmMachine_push(state, newOp);
+                    } else {
+                        assert(false);
+                    }
                 }
                 break;
             }
@@ -447,10 +526,17 @@ bool runCode(VmMachineState *state, GameState *gameState, List<VmOperation> oper
                 VmOperation op1 = vmMachine_pop(state);
                 if(!vm_isError(op) && !vm_isError(op1)) {
                     VmOperation newOp = {};
-                    newOp.type = OP_CODE_FLOAT;
-                    newOp.as_float = vmOp_getValue(state, op1, OP_CODE_FLOAT).as_float / vmOp_getValue(state, op, OP_CODE_FLOAT).as_float;
-                    vmMachine_push(state, newOp);
-                    // printf("%f\n", newOp.value_);
+                    if(op.type == OP_CODE_FLOAT || op1.type == OP_CODE_FLOAT) {
+                        newOp.type = OP_CODE_FLOAT;
+                        newOp.as_float = vmOp_getValue(state, op1, OP_CODE_FLOAT).as_float / vmOp_getValue(state, op, OP_CODE_FLOAT).as_float;
+                        vmMachine_push(state, newOp);
+                    } else if(op.type == OP_CODE_UINT && op1.type == OP_CODE_UINT) {
+                        newOp.type = OP_CODE_UINT;
+                        newOp.as_int = vmOp_getValue(state, op1, OP_CODE_UINT).as_int / vmOp_getValue(state, op, OP_CODE_UINT).as_int;
+                        vmMachine_push(state, newOp);
+                    } else {
+                        assert(false);
+                    }
                 }
                 break;
             }
@@ -459,10 +545,18 @@ bool runCode(VmMachineState *state, GameState *gameState, List<VmOperation> oper
                 VmOperation op1 = vmMachine_pop(state);
                 if(!vm_isError(op) && !vm_isError(op1)) {
                     VmOperation newOp = {};
-                    newOp.type = OP_CODE_FLOAT;
-                    newOp.as_float = pow(vmOp_getValue(state, op1, OP_CODE_FLOAT).as_float, vmOp_getValue(state, op, OP_CODE_FLOAT).as_float);
-                    vmMachine_push(state, newOp);
-                    // printf("%f\n", newOp.value_);
+                    if(op.type == OP_CODE_FLOAT || op1.type == OP_CODE_FLOAT) {
+                        newOp.type = OP_CODE_FLOAT;
+                        newOp.as_float = pow(vmOp_getValue(state, op1, OP_CODE_FLOAT).as_float, vmOp_getValue(state, op, OP_CODE_FLOAT).as_float);
+                        vmMachine_push(state, newOp);
+                    } else if(op.type == OP_CODE_UINT && op1.type == OP_CODE_UINT) {
+                        newOp.type = OP_CODE_UINT;
+                        newOp.as_int = pow(vmOp_getValue(state, op1, OP_CODE_UINT).as_int, vmOp_getValue(state, op, OP_CODE_UINT).as_int);
+                        vmMachine_push(state, newOp);
+                    } else {
+                        assert(false);
+                    }
+
                 }
                 break;
             }
@@ -543,17 +637,17 @@ bool runCode(VmMachineState *state, GameState *gameState, List<VmOperation> oper
             case OP_CODE_VARIABLE_ASSIGN: {
                 VmNumberType value = popAndGetValueNumber(state, OP_CODE_NONE);
 
-                if(value.count > 1) {
+                if(value.count > 1 || value.type == OP_CODE_NUMBER_ARRAY) {
                     VmOperation *tempArray = pushArray(&globalPerFrameArena, value.count, VmOperation);
                     for(int i = value.count - 1; i >= 0; --i) {
                         VmNumberType arrayValue = popAndGetValueNumber(state, OP_CODE_NONE);
                         tempArray[i].type = arrayValue.type;
                         tempArray[i].raw = arrayValue.raw;
                     }
-                    pushStackVariable(state, op->name, tempArray, value.count);
+                    pushStackVariable(state, op->name, tempArray, value.count, OP_CODE_NUMBER_ARRAY);
                 } else {
                     VmOperation opcode = { .type = value.type, .raw = value.raw };
-                    pushStackVariable(state, op->name, &opcode, 1);
+                    pushStackVariable(state, op->name, &opcode, 1, value.type);
                 }
 
                 break;

@@ -450,6 +450,11 @@ EasyToken lexGetToken_(EasyTokenizer *tokenizer, bool advanceWithToken) {
                 int numberOfDecimal = 0;
                 bool hadENotation = false;
                 at++; //move past the first number
+                bool isHexadecimal = (*at == 'x' ||  *at == 'X');
+                if(isHexadecimal) {
+                    //move past the x
+                    at++;
+                }
                 while(!hadENotation && *at && (lexIsNumeric(*at) || *at == '.' || *at == 'E' || *at == 'e')) {
                     if(*at == '.') {
                         numberOfDecimal++;
@@ -491,10 +496,15 @@ EasyToken lexGetToken_(EasyTokenizer *tokenizer, bool advanceWithToken) {
                 if(!hadENotation) {
                     char *a = nullTerminateArena(token.at, (at - token.at), &globalPerFrameArena);
                     if(numberOfDecimal > 0) {
+                        // assert(!isHexadecimal);
                         token.type = TOKEN_FLOAT;
                         token.floatVal = atof(a);
                     } else {
-                        token.intVal = strtoul(token.at, &at, 10);
+                        if(isHexadecimal) {
+                            int h = 0;
+                        }
+                        //NOTE: This function will move at to where it finished processing, so this handles our hexadecimal parsing without having to check the characters ourselves
+                        token.intVal = strtoul(token.at, &at, (isHexadecimal) ? 16 : 10);
                     }
                 }
 
