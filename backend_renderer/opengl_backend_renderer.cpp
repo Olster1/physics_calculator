@@ -437,7 +437,7 @@ void processRenderGroup(Renderer *renderer, float2 viewPortSize, BackendRenderer
         } else if(item->type == RENDER_VIEW_MATRIX) {
             currentViewMatrix = item->instance.T;
         } else if(item->type == RENDER_SHADER) {
-            Shader *currentShader = item->shader;
+            currentShader = item->shader;
         }
 
     }

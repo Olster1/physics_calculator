@@ -4,6 +4,7 @@ FUNC(AST_VARIABLE_NUMBER) \
 FUNC(AST_VARIABLE_U64) \
 FUNC(AST_VARIABLE_STRING) \
 FUNC(AST_VARIABLE_BOOLEAN) \
+FUNC(AST_VARIABLE_RECORD) \
 
 typedef enum {
     AST_TYPE_CHECKTYPE(ENUM)
@@ -11,9 +12,13 @@ typedef enum {
 
 static char *AstVariableTypeStrings[] = { "none", "number", "string", "boolean" };
 
+enum TypeCheckExpressionFlags {
+    TYPE_CHECK_MEMBER_ACCESS = 1 << 0,
+};
 
 struct TypeCheckerType {
     AstVariableType type;
+    char *name; //NOTE: Could be a ast record (struct/class etc.)
     int count; //NOTE: If more than 1 it's an array type
     bool isArray; //NOTE: To differentiate between an array of size 1 and plain 1 variable
 };
@@ -27,6 +32,24 @@ struct AstVariable {
 
 enum InterpreterFunctionFlags {
     INTERP_FUNCTION_VARIABLE_LENGTH = 1 << 0,
+};
+
+struct AstMember {
+    TypeCheckerType type;
+    char *name;
+
+    static AstMember init(char *name, TypeCheckerType type) {
+        AstMember result = {};
+
+        result.type = type;
+        result.name = name;
+
+        return result;
+    }
+};
+
+struct AstRecord {
+    List<AstMember> members;
 };
 
 struct InterpreterFunction{
@@ -64,16 +87,22 @@ struct CompilerState {
     AstVariable *variables[MAX_VARIABLE_MAP_SIZE]; //NOTE: Nodes pushed onto per frame arena
 
     Map<char *, InterpreterFunction> functionCalls;
+    Map<char *, List<AstMember>> records;
 
     int calculatorLineAt;
 
     List<VmOperation> *operations; //NOTE: Resize array
 };
 
+char *getInbuiltStructCode() {
+    return "struct Math { pi = 3.14159265358979; g = 9.807; } Math math = {};";
+}
+
 void initCompiler(CompilerState *state) {
     state->parser.error = 0;
 
     state->functionCalls = Map<char *, InterpreterFunction>::init(&globalPerFrameArena);
+    state->records = Map<char *, List<AstMember>>::init(&globalPerFrameArena);
 
     {
         InterpreterFunction func = InterpreterFunction::init({ .type = OP_CODE_QUADRATIC });
@@ -82,6 +111,12 @@ void initCompiler(CompilerState *state) {
         func.pushArgument({.type = AST_VARIABLE_NUMBER, .count = 1});
         func.setReturnType({.type = AST_VARIABLE_NUMBER, .count = 2, .isArray = true});
         state->functionCalls.insert("quad", func);
+    }
+    {
+        InterpreterFunction func = InterpreterFunction::init({ .type = OP_CODE_PRINT_AS_COLOR });
+        func.pushArgument({.type = AST_VARIABLE_NUMBER, .count = 1});
+        func.setReturnType({.type = AST_VARIABLE_NUMBER, .count = 1});
+        state->functionCalls.insert("colorHex", func);
     }
 
     {
@@ -183,6 +218,20 @@ void initCompiler(CompilerState *state) {
 
         state->functionCalls.insert("dot", func);
     }
+      {
+        InterpreterFunction func = InterpreterFunction::init({ .type = OP_CODE_VECTOR_NORMALIZE });
+        func.pushArgument({.type = AST_VARIABLE_NUMBER, .count = 2, .isArray = true});
+        func.setReturnType({.type = AST_VARIABLE_NUMBER, .count = 2, .isArray = true});
+
+        //NOTE: Overloaded
+        InterpreterFunction *func2 = pushStruct(&globalPerFrameArena, InterpreterFunction);
+        *func2 = InterpreterFunction::init({ .type = OP_CODE_VECTOR_NORMALIZE });
+        func2->pushArgument({.type = AST_VARIABLE_NUMBER, .count = 3, .isArray = true});
+        func2->setReturnType({.type = AST_VARIABLE_NUMBER, .count = 3, .isArray = true});
+        func.overloadFunctions = func2;
+
+        state->functionCalls.insert("normalize", func);
+    }
     {
         InterpreterFunction func = InterpreterFunction::init({ .type = OP_CODE_CROSS_PRODUCT });
         func.pushArgument({.type = AST_VARIABLE_NUMBER, .count = 2});
@@ -258,7 +307,7 @@ AstVariable *getCompilerVariable(CompilerState *state, char *name) {
     return ptr;
 }
 
-TypeCheckerType typeCheckExpression(CompilerState *state, AstExpression *expression);
+TypeCheckerType typeCheckExpression(CompilerState *state, AstExpression *expression, u64 flags = 0);
 
 TypeCheckerType typeCheckLiteralExpression(CompilerState *state, AstExpression *expression) {
     TypeCheckerType type = {};
@@ -272,14 +321,71 @@ TypeCheckerType typeCheckLiteralExpression(CompilerState *state, AstExpression *
     return type;
 }
 
+AstMember *ast_getMemberType(List<AstMember> members, char *name) {
+    AstMember *result = 0;
+    for(int i = 0; i < members.count; ++i) {
+        if(easyString_stringsMatch_nullTerminated(name, members[i].name)) {
+            result = &members[i];
+            break;
+        }
+    }
+    return result;
+}
+
+TypeCheckerType typeCheckMemberAccessExpression(CompilerState *state, AstExpression *expression) {
+    TypeCheckerType resultType = {};
+    assert(expression->right);
+    if(expression->right->token.type != TOKEN_WORD) {
+        state->parser.logError("Right hand operand must be a word.");
+    }
+    if(expression->right->type != AST_EXPRESSION_TYPE_NAMED) {
+        state->parser.logError("Right hand operand must be a name.");
+    }
+
+    //NOTE: member access have to be just one word
+    assert(expression->left);
+    if(expression->left->token.type != TOKEN_WORD) {
+        state->parser.logError("Left hand operand must be a word.");
+    }
+    if(expression->left->type != AST_EXPRESSION_TYPE_NAMED) {
+        state->parser.logError("Left hand operand must be a name.");
+    }
+
+    TypeCheckerType leftType = typeCheckExpression(state, expression->left);
+    TypeCheckerType rightType = typeCheckExpression(state, expression->right, TYPE_CHECK_MEMBER_ACCESS);
+
+    if(leftType.type == AST_VARIABLE_RECORD) {
+        List<AstMember> *members = state->records.get(leftType.name);
+
+        if(!members) {
+            state->parser.logError(easy_createString_printf(&globalPerFrameArena, "This record hasn't been declared: %s", leftType.name));
+        } else {
+          AstMember *rightMember = ast_getMemberType(*members, rightType.name);
+          if(!rightMember) {
+            state->parser.logError(easy_createString_printf(&globalPerFrameArena, "This record hasn't have a member called %s", rightType.name));
+          } else {
+            resultType = rightMember->type;
+          }
+        }
+    } else {
+        state->parser.logError("Member access does not exist for this variable.");
+    }
+
+    return resultType;
+}
+
 TypeCheckerType typeCheckAssignExpression(CompilerState *state, AstExpression *expression) {
     assert(expression->right);
-    TypeCheckerType rightType =  typeCheckExpression(state, expression->right);
+    TypeCheckerType rightType = typeCheckExpression(state, expression->right);
 
     //NOTE: assigns have to be just one word
     assert(expression->left);
-    assert(expression->left->token.type == TOKEN_WORD);
-    assert(expression->left->type == AST_EXPRESSION_TYPE_NAMED);
+    if(expression->left->token.type != TOKEN_WORD) {
+        state->parser.logError("Must assign to a word.");
+    }
+    if(expression->left->type != AST_EXPRESSION_TYPE_NAMED) {
+        state->parser.logError("Left hand operand must be a name.");
+    }
 
     char *name = nullTerminateArena(expression->left->token.at, expression->left->token.size, &globalPerFrameArena);
 
@@ -468,7 +574,8 @@ TypeCheckerType typeCheckOperatorExpression(CompilerState *state, AstExpression 
 
 }
 
-TypeCheckerType typeCheckExpression(CompilerState *state, AstExpression *expression) {
+
+TypeCheckerType typeCheckExpression(CompilerState *state, AstExpression *expression, u64 flags) {
     TypeCheckerType result = {};
     switch(expression->type) {
         case AST_EXPRESSION_TYPE_BLOCK: {
@@ -482,13 +589,23 @@ TypeCheckerType typeCheckExpression(CompilerState *state, AstExpression *express
         } break;
         case AST_EXPRESSION_TYPE_NAMED: {
             char *name = nullTerminateArena(expression->token.at, expression->token.size, &globalPerFrameArena);
-            AstVariable *variable = getCompilerVariable(state, name);
 
-            if(!variable) {
-                state->parser.error = "Variable not declared";
+            if(flags & TYPE_CHECK_MEMBER_ACCESS) {
+                //NOTE: Assume it's a member access member, so don't check for a variable becuase it's a child of the original member name which is handled in the function that calls this one.
+                result.type = AST_VARIABLE_RECORD;
+                result.name = name;
             } else {
-                result = variable->type;
+                AstVariable *variable = getCompilerVariable(state, name);
+
+                if(!variable) {
+                    state->parser.error = "Variable not declared";
+                } else {
+                    result = variable->type;
+                }
             }
+        } break;
+        case AST_EXPRESSION_TYPE_MEMBER_ACCESS: {
+            result = typeCheckMemberAccessExpression(state, expression);
         } break;
         case AST_EXPRESSION_TYPE_OPERATOR: {
             result = typeCheckOperatorExpression(state, expression);

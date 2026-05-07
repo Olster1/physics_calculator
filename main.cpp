@@ -20,7 +20,7 @@ void updateGame(GameState *gameState) {
 
     backend_render_clearFrame(gameState->colorPallette->background);
 
-    pushRenderShader(&gameState->renderer, &gameState->renderer.shaders->pixelArtShader);
+    // pushRenderShader(&gameState->renderer, &gameState->renderer.shaders->pixelArtShader);
 
     float scaleFactor = 0.1f;
     float2 plane = make_float2(scaleFactor*gameState->settingsToSave.windowX, scaleFactor*gameState->settingsToSave.windowY);
@@ -66,12 +66,22 @@ void updateGame(GameState *gameState) {
     for(int i = gameState->calculatorLinesParent.calculatorLineCount - 1; i >= 0; --i) {
         at.x = startX;
         CalculatorLine *b = gameState->calculatorLinesParent.calculatorLines + i;
+
         assert(b->in);
-        assert(b->out);
 
-        Rect2f dim = renderTextAsTokens(gameState, b->out, at, plane);
+        Rect2f dim = {};
 
-        // pushRenderTexture(&gameState->renderer, make_transformX_float2(get_centre_rect2f(dim), get_scale_rect2f(dim)), gameState->imageFiles.whiteImage, MY_COLOR_PASTEL_LAVENDER);
+        if(b->out) {
+            dim = renderTextAsTokens(gameState, b->out, at, plane);
+            // pushRenderTexture(&gameState->renderer, make_transformX_float2(get_centre_rect2f(dim), get_scale_rect2f(dim)), gameState->imageFiles.whiteImage, MY_COLOR_PASTEL_LAVENDER);
+        } else {
+            float2 swatchScale = make_float2(0.8f*lineHeight, 0.8f*lineHeight);
+            float2 renderAt = at;
+            renderAt.x += 0.5f*lineHeight;
+            renderAt.y += 0.5f*lineHeight;
+            pushRenderTexture(&gameState->renderer, make_transformX_float2(renderAt, swatchScale), gameState->imageFiles.whiteImage, b->colorOut);
+            dim = make_rect2f_center_dim(renderAt, swatchScale);
+        }
 
         at.x += get_scale_rect2f(dim).x + marginSpace;
         Rect2f dim1 = renderTextAsTokens(gameState, b->in, at, plane, 0.8f);

@@ -7,6 +7,7 @@ enum AstExpressionPrecendence {
     AST_PRECEDENCE_POSTFIX,
     AST_PRECEDENCE_EXPONENT,
     AST_PRECEDENCE_BIT_OPERATIONS,
+    AST_PRECEDENCE_MEMBER_ACCESS,
     AST_PRECEDENCE_CALL,
 };
 
@@ -18,6 +19,7 @@ enum AstExpressionType {
     AST_EXPRESSION_TYPE_OPERATOR,
     AST_EXPRESSION_TYPE_PREFIX,
     AST_EXPRESSION_TYPE_POSTFIX,
+    AST_EXPRESSION_TYPE_MEMBER_ACCESS,
     AST_EXPRESSION_TYPE_CALL,
 };
 
@@ -125,6 +127,9 @@ AstExpressionPrecendence getInfixPrecedenceForToken(EasyToken t) {
         case TOKEN_EQUALS: {
             precedence = AST_PRECEDENCE_ASSIGN;
         } break;
+        case TOKEN_PERIOD: {
+            precedence = AST_PRECEDENCE_MEMBER_ACCESS;
+        } break;
         case TOKEN_ASTRIX:
         case TOKEN_FORWARD_SLASH: {
             precedence = AST_PRECEDENCE_PRODUCT;
@@ -160,6 +165,13 @@ int getAssociativityInfixPrecedence(EasyToken t) {
 AstExpression *parseInfixExpression(ExpressionParser *parser, EasyToken t, AstExpression *left) {
     AstExpression *infix = 0;
     switch(t.type) {
+        case TOKEN_PERIOD: {
+            infix = pushStruct(&globalPerFrameArena, AstExpression);
+            infix->token = t;
+            infix->type = AST_EXPRESSION_TYPE_MEMBER_ACCESS;
+            infix->left = left;
+            infix->right = parseExpression(parser, getInfixPrecedenceForToken(t) - getAssociativityInfixPrecedence(t));
+        } break;;
         case TOKEN_ASTRIX:
         case TOKEN_FORWARD_SLASH:
         case TOKEN_PLUS:

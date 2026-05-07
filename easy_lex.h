@@ -431,11 +431,7 @@ EasyToken lexGetToken_(EasyTokenizer *tokenizer, bool advanceWithToken) {
             if(lexIsAlphaNumeric(*at)) {
                 token = lexInitToken(TOKEN_WORD, at, 1, *lineNumber);
                 at++;
-                bool hadDot = false;
-                while(*at && (lexIsAlphaNumeric(*at) || lexIsNumeric(*at) || lexInnerAlphaNumericCharacter(*at) || (*at == '.' && !hadDot))) {
-                    if(*at == '.') {
-                        hadDot = true;
-                    }
+                while(*at && (lexIsAlphaNumeric(*at) || lexIsNumeric(*at))) {
                     at++;
                 }
                 token.size = at - token.at;

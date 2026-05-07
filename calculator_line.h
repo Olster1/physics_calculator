@@ -1,4 +1,6 @@
 struct CalculatorLine {
+    //NOTE: Could be a color swatch if out is empty
+    float4 colorOut;
     char *in;
     char *out;
     char *units;
