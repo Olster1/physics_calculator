@@ -65,7 +65,20 @@ VmOperation vmMachine_push(VmMachineState *state, VmOperation operation) {
     return result;
 }
 
-void pushStackVariable(VmMachineState *state, char *name, VmOperation *values, int count, OpCode type) {
+VmOperation vmMachine_pushData(VmMachineState *state, u8 *data, u64 sizeToPush) {
+    VmOperation result = {};
+    if((state->stackSizeBytes + sizeToPush) <= state->stackSizeMaxBytes) {
+        easyPlatform_copyMemory(state->at, data, sizeToPush);
+        state->at += sizeToPush;
+    } else {
+        result.type = OP_CODE_ERROR;
+        result.as_int = (int)VM_ERROR_STACK_OVERFLOW;
+        assert(false);
+    }
+    return result;
+}
+
+void pushStackVariable(VmMachineState *state, char *name, VmOperation *values, int count, OpCode type, u64 structSize) {
     StackVariable *existingVar = getStackVariable(state, name);
 
     if(existingVar) {
@@ -75,6 +88,7 @@ void pushStackVariable(VmMachineState *state, char *name, VmOperation *values, i
             assert(dec->type == OP_CODE_FLOAT || dec->type == OP_CODE_UINT);
             easyPlatform_copyMemory(dec, values, sizeof(VmOperation)*count);
             existingVar->type = type;
+
         } else {
             //NOTE: Changing size of array so reallocate the array on the stack
              existingVar->count = count;
@@ -83,6 +97,7 @@ void pushStackVariable(VmMachineState *state, char *name, VmOperation *values, i
                 vmMachine_push(state, values[i]);
             }
             existingVar->type = type;
+            existingVar->structSize = structSize;
         }
     } else {
          StackVariable *var = pushStruct(&globalPerFrameArena, StackVariable);
@@ -90,6 +105,7 @@ void pushStackVariable(VmMachineState *state, char *name, VmOperation *values, i
          var->type = type;
 
         var->name = name;
+        var->structSize = structSize;
         var->bytesOffset = (u64)(state->at - state->stackBase);
 
         for(int i = 0; i < count; ++i) {
@@ -108,7 +124,11 @@ void pushStackVariable(VmMachineState *state, char *name, VmOperation *values, i
 
 VmNumberType vmOp_getValue(VmMachineState *state, VmOperation op, OpCode desiredType) {
     VmNumberType result = {};
-    if(op.type == OP_CODE_UINT) {
+
+    if(op.type == OP_CODE_RECORD_TYPE) {
+        result.type = op.type;
+        result.raw = op.raw;
+    } else if(op.type == OP_CODE_UINT) {
         result.type = op.type;
         result.raw = op.raw;
         if(desiredType == OP_CODE_FLOAT) {
@@ -136,7 +156,21 @@ VmNumberType vmOp_getValue(VmMachineState *state, VmOperation op, OpCode desired
         assert(var);
         result.count = var->count;
 
-        if(result.count > 1 || var->type == OP_CODE_NUMBER_ARRAY) {
+        if(var->type == OP_CODE_RECORD_TYPE) {
+            result.type = OP_CODE_RECORD_TYPE;
+            result.as_uint = var->structSize;
+            assert(var->type == OP_CODE_RECORD_TYPE);
+            //NOTE: Is an object record type so load the whole lot onto the stack
+            u8* start = (u8 *)(state->stackBase + var->bytesOffset);
+            if((state->stackSizeBytes + var->structSize) <= state->stackSizeMaxBytes) {
+                easyPlatform_copyMemory(state->at, start, var->structSize);
+                state->at += var->structSize;
+            } else {
+                //NOTE: Stack overflow
+                assert(false);
+            }
+            //NOTE: Now a tag to say what i just pushed onto the stack to know what to get off again
+        } else if(result.count > 1 || var->type == OP_CODE_NUMBER_ARRAY) {
             result.type = OP_CODE_NUMBER_ARRAY;
             assert(var->type == OP_CODE_NUMBER_ARRAY);
             //NOTE: Is array type so load all the values on the stack
@@ -192,6 +226,19 @@ VmOperation vmMachine_pop(VmMachineState *state) {
     return result;
 }
 
+u8 *vmMachine_popData(VmMachineState *state, u64 sizeToPop) {
+    u8 *result = 0;
+
+    if (state->at > state->stackBase) {
+        state->at -= sizeToPop;
+        result = (u8 *)pushSize(&globalPerFrameArena, sizeToPop);
+        easyPlatform_copyMemory(result, state->at, sizeToPop);
+    } else {
+        assert(false);
+    }
+    return result;
+}
+
 VmNumberType popAndGetValueNumber(VmMachineState *state, OpCode desiredType) {
     VmNumberType result = {};
     VmOperation op = vmMachine_pop(state);
@@ -220,13 +267,16 @@ double vm_getLiteralValueAsFloat(VmNumberType numberType) {
     return result;
 }
 
-bool runCode(VmMachineState *state, GameState *gameState, List<VmOperation> operations, bool isUnitTest = false) {
+bool runCode(VmMachineState *state, GameState *gameState, ByteCodeOperations *operations, bool isUnitTest = false) {
     bool clear = false;
 
-    for(int i = 0; i < operations.count; ++i) {
-        VmOperation *op = &operations[i];
+    u8 *at = operations->operations;
+    while(((uintptr_t)at - ((uintptr_t)operations->operations)) < operations->totalSize) {
+        VmOperation *op = (VmOperation *)at;
 
         // printf("%s\n", OpCodeTypeStrings[op->type]);
+
+        u64 sizeToMove = sizeof(VmOperation);
 
         switch (op->type) {
             // --- Vector Operations ---
@@ -289,6 +339,7 @@ bool runCode(VmMachineState *state, GameState *gameState, List<VmOperation> oper
                     } else {
 
                         StringBuffer b = {};
+                        b.string = "";
                         if(value.type == OP_CODE_NUMBER_ARRAY || value.count > 1) {
                             assert(!value.name);
                             b.string = "[";
@@ -313,6 +364,10 @@ bool runCode(VmMachineState *state, GameState *gameState, List<VmOperation> oper
                                 } else {
                                     b.string = easy_createString_printf(&globalPerVmRunLifetime, "%lu", value.as_int);
                                 }
+                            } else if(value.type == OP_CODE_RECORD_TYPE) {
+                                //TODO: Record so print all the value types
+                                u8 *data = vmMachine_popData(state, value.as_uint);
+                                int h = 0;
 
                             } else {
                                 assert(false);
@@ -660,6 +715,35 @@ bool runCode(VmMachineState *state, GameState *gameState, List<VmOperation> oper
 
                 break;
             }
+            case OP_CODE_BYTE_OFFSET_REFERENCE: {
+                //TODO: Get the byte offset value
+                VmNumberType value = popAndGetValueNumber(state, OP_CODE_NONE);
+                assert(value.type == OP_CODE_RECORD_TYPE);
+
+                u8 *data = vmMachine_popData(state, value.as_uint);
+                u8 *valueToPushBack = data + op->as_uint;
+
+                //NOTE: Now need to interpret it to know what to push it back on as
+                VmOperation newOp = {};
+                newOp.type = OP_CODE_FLOAT;
+                newOp.as_float = *((double *)valueToPushBack);
+                vmMachine_push(state, newOp);
+
+            } break;
+            // case OP_CODE_BYTE_OFFSET_ASSIGN: {
+            //     //TODO: Get the byte offset value
+            //     VmNumberType value = popAndGetValueNumber(state, OP_CODE_NONE);
+
+            //     u8 *data = vmMachine_popData(state, value.as_uint);
+            //     u8 *valueToPushBack = data + op->as_uint;
+
+            //     //NOTE: Now need to interpret it to know what to push it back on as
+            //     VmOperation newOp = {};
+            //     newOp.type = OP_CODE_FLOAT;
+            //     newOp.as_float = *((double *)valueToPushBack);
+            //     vmMachine_push(state, newOp);
+
+            // } break;
 
             // --- Literals / Types ---
             case OP_CODE_FLOAT: {
@@ -670,7 +754,6 @@ bool runCode(VmMachineState *state, GameState *gameState, List<VmOperation> oper
                 vmMachine_push(state, *op);
                 break;
             }
-
             case OP_CODE_NUMBER_ARRAY: {
                 vmMachine_push(state, *op);
                 break;
@@ -679,22 +762,32 @@ bool runCode(VmMachineState *state, GameState *gameState, List<VmOperation> oper
                 vmMachine_push(state, *op);
                 break;
             }
+            case OP_CODE_RECORD_TYPE: {
+                VmOperation toPush = *op;
+                at += sizeof(VmOperation);
+                sizeToMove = op->as_uint;
+                vmMachine_pushData(state, at, op->as_uint);
+                vmMachine_push(state, toPush);
+            } break;
             case OP_CODE_VARIABLE_ASSIGN: {
                 VmNumberType value = popAndGetValueNumber(state, OP_CODE_NONE);
 
-                if(value.count > 1 || value.type == OP_CODE_NUMBER_ARRAY) {
+              if(value.count > 1 || value.type == OP_CODE_NUMBER_ARRAY) {
                     VmOperation *tempArray = pushArray(&globalPerFrameArena, value.count, VmOperation);
                     for(int i = value.count - 1; i >= 0; --i) {
                         VmNumberType arrayValue = popAndGetValueNumber(state, OP_CODE_NONE);
                         tempArray[i].type = arrayValue.type;
                         tempArray[i].raw = arrayValue.raw;
                     }
-                    pushStackVariable(state, op->name, tempArray, value.count, OP_CODE_NUMBER_ARRAY);
+                    pushStackVariable(state, op->name, tempArray, value.count, OP_CODE_NUMBER_ARRAY, sizeof(VmOperation)*value.count);
                 } else {
+                    u64 structSize = sizeof(VmOperation);
+                    if(value.type == OP_CODE_RECORD_TYPE) {
+                        structSize = value.as_uint;
+                    }
                     VmOperation opcode = { .type = value.type, .raw = value.raw };
-                    pushStackVariable(state, op->name, &opcode, 1, value.type);
+                    pushStackVariable(state, op->name, &opcode, 1, value.type, structSize);
                 }
-
                 break;
             }
 
@@ -703,6 +796,7 @@ bool runCode(VmMachineState *state, GameState *gameState, List<VmOperation> oper
                 break;
             }
         }
+        at += sizeToMove;
     }
     return clear;
 }

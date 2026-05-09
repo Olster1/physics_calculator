@@ -63,7 +63,7 @@ void updateGame(GameState *gameState) {
     //NOTE: Draw the calculator lines
     float startX = -0.5f*plane.x - gameState->bufferOffset.x;
     float2 at = make_float2(startX, -0.5f*plane.y + 5 - gameState->bufferOffset.y);
-    for(int i = gameState->calculatorLinesParent.calculatorLineCount - 1; i >= 0; --i) {
+    for(int i = gameState->calculatorLinesParent.calculatorLineCount - 1; i >= getInbuiltLineCount(); --i) {
         at.x = startX;
         CalculatorLine *b = gameState->calculatorLinesParent.calculatorLines + i;
 

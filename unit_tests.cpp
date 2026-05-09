@@ -4,7 +4,6 @@ struct UnitTestResults {
     int totalCount;
 };
 
-
 void runUnitTest(UnitTestResults *results,  char *code, double answer) {
     GameState *gameState = results->gameState;
     refreshVmMemoryArena();
@@ -12,7 +11,7 @@ void runUnitTest(UnitTestResults *results,  char *code, double answer) {
 
     char *error = compileToByteCode(code, &gameState->operations, &gameState->calculatorLinesParent);
     VmMachineState machineState  = initVmMachineState();
-    runCode(&machineState, gameState, gameState->operations, true);
+    runCode(&machineState, gameState, &gameState->operations, true);
 
     double value = popAndGetValueNumber(&machineState, OP_CODE_FLOAT).as_float;
 

@@ -37,19 +37,32 @@ enum InterpreterFunctionFlags {
 struct AstMember {
     TypeCheckerType type;
     char *name;
+    u64 byteOffset;
+    AstExpression *expression;
 
-    static AstMember init(char *name, TypeCheckerType type) {
+    static AstMember init(char *name, TypeCheckerType type, u64 byteOffset, AstExpression *expression) {
         AstMember result = {};
 
         result.type = type;
         result.name = name;
+        result.byteOffset = byteOffset;
+        result.expression = expression;
 
         return result;
     }
 };
 
 struct AstRecord {
+    char *name;
     List<AstMember> members;
+    u64 totalSize;
+
+    static AstRecord init(char *name) {
+        AstRecord result = {};
+        result.name = name;
+        result.members = List<AstMember>::init(&globalPerFrameArena);
+        return result;
+    }
 };
 
 struct InterpreterFunction{
@@ -81,28 +94,108 @@ struct InterpreterFunction{
     InterpreterFunction *overloadFunctions;
 };
 
+struct AstScope {
+    AstVariable *variables[MAX_VARIABLE_MAP_SIZE]; //NOTE: Nodes pushed onto per frame arena
+};
+
+struct ByteCodeOperations {
+    u8 *operations;
+    u64 totalSize;
+    u64 writeAt;
+
+    void clear() {
+        operations = 0;
+        totalSize = 0;
+        writeAt = 0;
+    }
+
+    // Ensures there is enough space for 'size' additional bytes
+    void ensureCapacity(u64 size) {
+        if (!operations) {
+            totalSize = Kilobytes(1);
+            // Ensure we allocate at least as much as requested
+            if (totalSize < size) totalSize = size;
+            operations = (u8 *)pushSize(&globalPerFrameArena, totalSize);
+        }
+        else if (writeAt + size > totalSize) {
+            u64 oldSize = totalSize;
+            // Double the size or take the required size, whichever is larger
+            totalSize = (oldSize * 2) > (writeAt + size) ? (oldSize * 2) : (writeAt + size);
+
+            u8 *newOperations = (u8 *)pushSize(&globalPerFrameArena, totalSize);
+
+            // Copy existing data to the new allocation
+            for (u64 i = 0; i < writeAt; ++i) {
+                newOperations[i] = operations[i];
+            }
+
+            operations = newOperations;
+            // Note: We don't free 'operations' because it lives in the Arena
+        }
+    }
+
+    // Pushes a single VmOperation
+    void push(VmOperation operation) {
+        u64 size = sizeof(VmOperation);
+        ensureCapacity(size);
+
+        *(VmOperation *)(operations + writeAt) = operation;
+        writeAt += size;
+    }
+
+    // Pushes arbitrary memory (e.g., immediate values, strings, or raw bytes)
+    void pushData(void *data, u64 size) {
+        if (size == 0) return;
+        ensureCapacity(size);
+
+        u8 *source = (u8 *)data;
+        for (u64 i = 0; i < size; ++i) {
+            operations[writeAt + i] = source[i];
+        }
+
+        writeAt += size;
+    }
+};
+
 struct CompilerState {
+    u64 flags;
+
     ExpressionParser parser;
 
-    AstVariable *variables[MAX_VARIABLE_MAP_SIZE]; //NOTE: Nodes pushed onto per frame arena
+    AstRecord *record; //NOTE: Current record being declared
+    List<AstScope> scopes;
 
     Map<char *, InterpreterFunction> functionCalls;
-    Map<char *, List<AstMember>> records;
+    Map<char *, AstRecord> records;
 
     int calculatorLineAt;
 
-    List<VmOperation> *operations; //NOTE: Resize array
+    ByteCodeOperations *operations;
 };
 
-char *getInbuiltStructCode() {
-    return "struct Math { pi = 3.14159265358979; g = 9.807; } Math math = {};";
+u64 ast_getTypeSize(CompilerState *state, TypeCheckerType type) {
+    u64 result = 0;
+    if(type.type != AST_VARIABLE_RECORD) {
+        result = 8;
+    } else if(type.name){
+        AstRecord *record = state->records.get(type.name);
+        if(record) {
+            result = record->totalSize;
+        }
+    }
+    return result;
 }
 
 void initCompiler(CompilerState *state) {
     state->parser.error = 0;
 
+    state->scopes = List<AstScope>::init(&globalPerFrameArena);
+    //NOTE: Push Initial Scope onto the stack
+    AstScope scope = {};
+    state->scopes.push(scope);
+
     state->functionCalls = Map<char *, InterpreterFunction>::init(&globalPerFrameArena);
-    state->records = Map<char *, List<AstMember>>::init(&globalPerFrameArena);
+    state->records = Map<char *, AstRecord>::init(&globalPerFrameArena);
 
     {
         InterpreterFunction func = InterpreterFunction::init({ .type = OP_CODE_QUADRATIC });
@@ -283,16 +376,21 @@ void pushCompilerVariable(CompilerState *state, char *name, TypeCheckerType type
 
     int index = getIndexForVariableMap(name);
 
-    AstVariable **ptr = &state->variables[index];
+    assert(state->scopes.count > 0);
+    AstScope *currentScope = &state->scopes[state->scopes.count - 1];
+    AstVariable **ptr = &currentScope->variables[index];
     while(*ptr) {
         ptr = &(*ptr)->next;
     }
     *ptr = var;
 }
 
+
 AstVariable *getCompilerVariable(CompilerState *state, char *name) {
     int index = getIndexForVariableMap(name);
-    AstVariable *ptr = state->variables[index];
+    assert(state->scopes.count > 0);
+    AstScope *currentScope = &state->scopes[state->scopes.count - 1];
+    AstVariable *ptr = currentScope->variables[index];
 
     bool found = false;
     while(ptr && !found) {
@@ -332,6 +430,12 @@ AstMember *ast_getMemberType(List<AstMember> members, char *name) {
     return result;
 }
 
+void pushMemberRecord(CompilerState *state, AstRecord *record, char *name, TypeCheckerType type, AstExpression *expression) {
+    AstMember member = AstMember::init(name, type, record->totalSize, expression);
+    record->members.push(member);
+    record->totalSize += ast_getTypeSize(state, type);
+}
+
 TypeCheckerType typeCheckMemberAccessExpression(CompilerState *state, AstExpression *expression) {
     TypeCheckerType resultType = {};
     assert(expression->right);
@@ -355,7 +459,7 @@ TypeCheckerType typeCheckMemberAccessExpression(CompilerState *state, AstExpress
     TypeCheckerType rightType = typeCheckExpression(state, expression->right, TYPE_CHECK_MEMBER_ACCESS);
 
     if(leftType.type == AST_VARIABLE_RECORD) {
-        List<AstMember> *members = state->records.get(leftType.name);
+        List<AstMember> *members = &state->records.get(leftType.name)->members;
 
         if(!members) {
             state->parser.logError(easy_createString_printf(&globalPerFrameArena, "This record hasn't been declared: %s", leftType.name));
@@ -378,29 +482,50 @@ TypeCheckerType typeCheckAssignExpression(CompilerState *state, AstExpression *e
     assert(expression->right);
     TypeCheckerType rightType = typeCheckExpression(state, expression->right);
 
+    TypeCheckerType leftType = typeCheckExpression(state, expression->right);
+
     //NOTE: assigns have to be just one word
     assert(expression->left);
-    if(expression->left->token.type != TOKEN_WORD) {
-        state->parser.logError("Must assign to a word.");
+    if(expression->left->token.type != TOKEN_WORD && expression->left->type != AST_EXPRESSION_TYPE_MEMBER_ACCESS) {
+        state->parser.logError("Must assign to a variable.");
     }
-    if(expression->left->type != AST_EXPRESSION_TYPE_NAMED) {
+    if(expression->left->type != AST_EXPRESSION_TYPE_NAMED && expression->left->type != AST_EXPRESSION_TYPE_MEMBER_ACCESS) {
         state->parser.logError("Left hand operand must be a name.");
     }
 
     char *name = nullTerminateArena(expression->left->token.at, expression->left->token.size, &globalPerFrameArena);
 
-    AstVariable *variable = getCompilerVariable(state, name);
+    if(state->record) {
+        //NOTE: Is a record defnition so we handle it differently
+        AstMember *member = ast_getMemberType(state->record->members, name);
 
-    if(!variable) {
-        printf("Variable not declared. Adding it now.\n");
-        pushCompilerVariable(state, name, rightType);
-        assert(getCompilerVariable(state, name));
-    } else if(variable->type.type != rightType.type) {
-        //NOTE: Check if the user is changing it's type
-        variable->type = rightType;
-    } else if(variable->type.count != rightType.count) {
-        //NOTE: Check if the user is changing it's count
-        variable->type = rightType;
+        if(!member) {
+            printf("Member not declared. Adding it now.\n");
+            pushMemberRecord(state, state->record, name, rightType, expression->right);
+            assert(ast_getMemberType(state->record->members, name));
+        } else {
+            state->parser.logError("Member already declared. You cannot add multiple members of the same name.");
+        }
+
+    } else {
+        if(leftType.name) {
+            //NOTE: Is a member access type, so assume it already got an error
+            //      when we parsed the left hand if it didn't already exist
+        } else {
+            AstVariable *variable = getCompilerVariable(state, name);
+
+            if(!variable) {
+                printf("Variable not declared. Adding it now.\n");
+                pushCompilerVariable(state, name, rightType);
+                assert(getCompilerVariable(state, name));
+            } else if(variable->type.type != rightType.type) {
+                //NOTE: Check if the user is changing it's type
+                variable->type = rightType;
+            } else if(variable->type.count != rightType.count) {
+                //NOTE: Check if the user is changing it's count
+                variable->type = rightType;
+            }
+        }
     }
 
     return rightType;
@@ -408,7 +533,7 @@ TypeCheckerType typeCheckAssignExpression(CompilerState *state, AstExpression *e
 
 void typeCheckBlockExpression(CompilerState *state, AstExpression *expression) {
     for(int i = 0; i < expression->arguments.count; ++i) {
-        typeCheckExpression(state, expression->arguments[i]);
+       TypeCheckerType t = typeCheckExpression(state, expression->arguments[i]);
     }
 }
 
@@ -433,8 +558,19 @@ TypeCheckerType typeCheckCallExpression(CompilerState *state, AstExpression *exp
     char *name = nullTerminateArena(expression->left->token.at, expression->left->token.size, &globalPerFrameArena);
 
     InterpreterFunction *functionType = state->functionCalls.get(name);
+
     if(!functionType) {
-        state->parser.error = "Function not declared";
+        AstRecord *record = state->records.get(name);
+        if(!record) {
+            state->parser.error = "Function or Struct not declared";
+        } else {
+            //TODO: This should just be treated as a function. Right now objects don't have a constructor
+            TypeCheckerType type = {};
+            type.name = record->name;
+            type.type = AST_VARIABLE_RECORD;
+            type.count = 1;
+            result = type;
+        }
     } else {
         bool foundMatch = false;
         char *errorToAssign = 0;
@@ -574,10 +710,29 @@ TypeCheckerType typeCheckOperatorExpression(CompilerState *state, AstExpression 
 
 }
 
+AstRecord *ast_addNewRecord(CompilerState *state, char *name) {
+    AstRecord record = AstRecord::init(name);
+    AstRecord *result = state->records.insert(name, record);
+    printf("Record added %s\n", name);
+    return result;
+}
 
 TypeCheckerType typeCheckExpression(CompilerState *state, AstExpression *expression, u64 flags) {
     TypeCheckerType result = {};
     switch(expression->type) {
+        case AST_EXPRESSION_TYPE_STRUCT_DECLARATION: {
+            if(state->record) {
+                state->parser.logError("Cannot define a struct inside another struct.");
+            }
+            //NOTE: Give context that we're in a struct block
+            state->record = ast_addNewRecord(state, expression->name);
+
+            typeCheckBlockExpression(state, expression);
+
+            //NOTE: Remove the context that we were in a block
+            state->record = 0;
+
+        } break;
         case AST_EXPRESSION_TYPE_BLOCK: {
             typeCheckBlockExpression(state, expression);
         } break;

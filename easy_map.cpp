@@ -56,7 +56,7 @@ struct Map {
         return hash_key(key) % bucketCount;
     }
 
-    void insert(K key, V value) {
+    V *insert(K key, V value) {
         uint32_t index = getHash(key);
         Node* head = buckets[index];
 
@@ -65,7 +65,7 @@ struct Map {
         while (curr) {
             if (keys_match(curr->key, key)) {
                 curr->value = value;
-                return;
+                return &curr->value;
             }
             curr = curr->next;
         }
@@ -92,6 +92,8 @@ struct Map {
         newNode->value = value;
         newNode->next = head;
         buckets[index] = newNode;
+
+        return &newNode->value;
     }
 
     bool remove(K key) {

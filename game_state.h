@@ -16,7 +16,7 @@ struct GameState {
     float2 scrollWheelDelta;
     char *currentCompilerError;
 
-    List<VmOperation> operations;
+    ByteCodeOperations operations;
     int historyAt;
     List<char *> bufferHistory; //NOTE: Strings users have entered already which last the lifetime of the program
 
@@ -56,7 +56,7 @@ void clearCalculatorBuffer(GameState *gameState) {
     gameState->calculatorLinesParent.calculatorLineCount = 0;
     gameState->settingsToSave.startUseRadians = gameState->settingsToSave.useRadians;
     //NOTE: This string is stored int the per clear session arena so is free now
-    gameState->settingsToSave.code = "";
+    gameState->settingsToSave.code = getInbuiltStructCode();
 
     saveSettingsFile(&gameState->settingsToSave);
 }

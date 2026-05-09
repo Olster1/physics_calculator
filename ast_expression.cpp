@@ -13,6 +13,7 @@ enum AstExpressionPrecendence {
 
 enum AstExpressionType {
     AST_EXPRESSION_TYPE_BLOCK,
+    AST_EXPRESSION_TYPE_STRUCT_DECLARATION,
     AST_EXPRESSION_TYPE_ASSIGN,
     AST_EXPRESSION_TYPE_LITERAL,
     AST_EXPRESSION_TYPE_NAMED,
@@ -25,6 +26,7 @@ enum AstExpressionType {
 
 struct AstExpression {
     AstExpressionType type;
+    char *name; //NOTE: If it's a struct type it has it's name here
 
     EasyToken token;
     VmOperation operation; //NOTE: easy to just add it when we run the lexer
@@ -64,6 +66,29 @@ bool consumeNextToken(ExpressionParser *parser, EasyTokenType typeAssumed) {
 
 AstExpression *parseExpression(ExpressionParser *parser, int precedence);
 
+AstExpression *parseStructExpression(ExpressionParser *parser, EasyToken token) {
+    AstExpression *parent = pushStruct(&globalPerFrameArena, AstExpression);
+    parent->token = token;
+    parent->type = AST_EXPRESSION_TYPE_STRUCT_DECLARATION;;
+
+    parent->arguments = List<AstExpression *>::init(&globalPerFrameArena);
+
+    do {
+        AstExpression *arg  = parseExpression(parser, 0);
+        parent->arguments.push(arg);
+        consumeNextToken(parser, TOKEN_NEWLINE);
+
+        //NOTE: Eat any extraneous semi colons. I'm not sure if there is a more natural way this can occur that just happens by itself?
+        while(lexSeeNextToken(&parser->tokenizer).type == TOKEN_SEMI_COLON) {
+            lexGetNextToken(&parser->tokenizer);
+        }
+    } while(lexSeeNextToken(&parser->tokenizer).type != TOKEN_CLOSE_BRACKET);
+
+    consumeNextToken(parser, TOKEN_CLOSE_BRACKET);
+
+    return parent;
+}
+
 AstExpression *parsePrefixExpression(ExpressionParser *parser, EasyToken t) {
     AstExpression *prefix = 0;
     switch(t.type) {
@@ -74,6 +99,21 @@ AstExpression *parsePrefixExpression(ExpressionParser *parser, EasyToken t) {
             prefix->type = AST_EXPRESSION_TYPE_PREFIX;
             consumeNextToken(parser, TOKEN_OPEN_PARENTHESIS);
             prefix->right = parseExpression(parser, AST_PRECEDENCE_PREFIX);
+        } break;
+        case TOKEN_STRUCT_KEYWORD: {
+            //NOTE: Is a struct definition
+            EasyToken structNameToken = lexGetNextToken(&parser->tokenizer);
+            char *structName = 0;
+            if(structNameToken.type != TOKEN_WORD) {
+                parser->logError("Expected a struct name.");
+            } else {
+                structName = nullTerminateArena(structNameToken.at, structNameToken.size, &globalPerFrameArena);;
+            }
+
+            consumeNextToken(parser, TOKEN_OPEN_BRACKET);
+            prefix = parseStructExpression(parser, t);
+            prefix->name = structName;
+
         } break;
         case TOKEN_PLUS:
         case TOKEN_MINUS: {

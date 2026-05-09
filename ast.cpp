@@ -22,7 +22,19 @@ AstExpression *parseGlobalScope(char *codeToCompile, ExpressionParser *parser) {
     return parent;
 }
 
-void clearPerVmRunData(List<VmOperation> *operations, char *codeToRun, CalculatorLines *calculatorLines) {
+int getInbuiltLineCount() {
+    int inbuiltLines = 0;
+    char *minusCode = getInbuiltStructCode();
+    while(*minusCode) {
+        if(lexIsNewLine(*minusCode)) {
+            inbuiltLines++;
+        }
+        minusCode++;
+    }
+    return inbuiltLines;
+}
+
+void clearPerVmRunData(ByteCodeOperations *operations, char *codeToRun, CalculatorLines *calculatorLines) {
     refreshVmMemoryArena();
     operations->clear();
 
@@ -57,7 +69,7 @@ void clearPerVmRunData(List<VmOperation> *operations, char *codeToRun, Calculato
     }
 }
 
-char *compileToByteCode(char *codeToCompile, List<VmOperation> *operations, CalculatorLines *calculatorLines) {
+char *compileToByteCode(char *codeToCompile, ByteCodeOperations *operations, CalculatorLines *calculatorLines) {
     CompilerState *state = pushStruct(&globalPerFrameArena, CompilerState);
     initCompiler(state);
     state->operations = operations;

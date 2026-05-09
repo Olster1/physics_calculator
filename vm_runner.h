@@ -40,8 +40,9 @@
     FUNC(OP_CODE_PRINT_AS_BINARY) \
     FUNC(OP_CODE_PRINT_AS_COLOR) \
     FUNC(OP_CODE_PRINT_AS_HEXADECIMAL) \
-    FUNC(OP_CODE_ERROR)
-
+    FUNC(OP_CODE_ERROR) \
+    FUNC(OP_CODE_RECORD_TYPE) \
+    FUNC(OP_CODE_BYTE_OFFSET_REFERENCE)
 
 typedef enum {
     EASY_OP_CODE_TYPE(ENUM)
@@ -61,6 +62,7 @@ struct StackVariable {
     u64 bytesOffset;
     int count; //NOTE: If more than 1 it's an array variable
     OpCode type; //NOTE: could be a Number array of size 1, so we need this aswell
+    u64 structSize; //NOTE: The size of the object
 
     StackVariable *next; //NOTE: Linked list pointer
 };

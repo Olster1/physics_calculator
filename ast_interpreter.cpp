@@ -1,4 +1,3 @@
-
 void pushPrintOperation(CompilerState *state) {
     VmOperation data = { .type = OP_CODE_FLOAT, .as_float = (double)(state->calculatorLineAt++) };
     state->operations->push(data);
@@ -27,8 +26,8 @@ void interpretAssignExpression(CompilerState *state, AstExpression *expression) 
 
     //NOTE: assigns have to be just one word
     assert(expression->left);
-    assert(expression->left->token.type == TOKEN_WORD);
-    assert(expression->left->type == AST_EXPRESSION_TYPE_NAMED);
+    // assert(expression->left->token.type == TOKEN_WORD);
+    assert(expression->left->type == AST_EXPRESSION_TYPE_NAMED || expression->left->type == AST_EXPRESSION_TYPE_MEMBER_ACCESS);
 
     char *name = nullTerminateArena(expression->left->token.at, expression->left->token.size, &globalPerFrameArena);
 
@@ -51,7 +50,10 @@ void interpretBlockExpression(CompilerState *state, AstExpression *expression) {
     for(int i = 0; i < expression->arguments.count; ++i) {
         interpretExpression(state, expression->arguments[i]);
         //TODO: This is specific to our calculator program. In a real programming language this wouldn't be here.
-        pushPrintOperation(state);
+        if(expression->arguments[i]->type != AST_EXPRESSION_TYPE_STRUCT_DECLARATION) {
+            pushPrintOperation(state);
+        }
+
     }
 }
 
@@ -77,7 +79,21 @@ void interpretCallExpression(CompilerState *state, AstExpression *expression) {
 
     InterpreterFunction *op = state->functionCalls.get(name);
     if(!op) {
-        state->parser.error = "Function not declared";
+        AstRecord *record = state->records.get(name);
+        if(!record) {
+            state->parser.error = "Function or Struct not declared";
+        } else {
+            state->operations->push({ .type = OP_CODE_RECORD_TYPE, .as_uint = record->totalSize});
+            u8 *data = (u8 *)pushSize(&globalPerFrameArena, record->totalSize);
+            state->operations->pushData(data, record->totalSize);
+
+            //TODO: Emit byte code for initializing members
+            // for(int i = 0; i < record->members.count; i++) {
+            //     AstMember *member = &record->members[i];
+            //     assert(member->expression);
+            //     interpretExpression(state, member->expression);
+            // }
+        }
     } else {
         state->operations->push(op->operation);
     }
@@ -112,6 +128,26 @@ void interpretPrefixExpression(CompilerState *state, AstExpression *expression) 
     }
 }
 
+void interpretMemberExpression(CompilerState *state, AstExpression *expression) {
+    assert(expression->left);
+    assert(expression->right);
+    interpretExpression(state, expression->left);
+    //NOTE: Get the record and find the offset
+    char *varName = nullTerminateArena(expression->left->token.at, expression->left->token.size, &globalPerFrameArena);
+
+    AstVariable *variable = getCompilerVariable(state, varName);
+    assert(variable); //NOTE: Type checker would have picked it up if this didn't exist
+    assert(variable->type.name);
+    AstRecord *record = state->records.get(variable->type.name);
+    assert(record); //NOTE: Type checker would have picked it up if this didn't exist
+
+    char *name = nullTerminateArena(expression->right->token.at, expression->right->token.size, &globalPerFrameArena);
+    AstMember *member = ast_getMemberType(record->members, name);
+
+    VmOperation op = { .type = OP_CODE_BYTE_OFFSET_REFERENCE, .as_uint = member->byteOffset  };
+    state->operations->push(op);
+
+}
 
 void interpretOperatorExpression(CompilerState *state, AstExpression *expression) {
     assert(expression->left);
@@ -168,6 +204,9 @@ void interpretExpression(CompilerState *state, AstExpression *expression) {
         case AST_EXPRESSION_TYPE_BLOCK: {
             interpretBlockExpression(state, expression);
         } break;
+        case AST_EXPRESSION_TYPE_STRUCT_DECLARATION: {
+            //NOTE: Don't emit anything
+        } break;
         case AST_EXPRESSION_TYPE_ASSIGN: {
             interpretAssignExpression(state, expression);
         } break;
@@ -176,17 +215,14 @@ void interpretExpression(CompilerState *state, AstExpression *expression) {
         } break;
         case AST_EXPRESSION_TYPE_NAMED: {
             char *name = nullTerminateArena(expression->token.at, expression->token.size, &globalPerFrameArena);
-            // AstVariable *variable = getCompilerVariable(state, name);
-
-            // if(!variable) {
-            //     state->parser.error = "Variable not declared";
-            // } else {
-                VmOperation op = { .type = OP_CODE_VARIABLE_REFERENCE, .name = name };
-                state->operations->push(op);
-            // }
+            VmOperation op = { .type = OP_CODE_VARIABLE_REFERENCE, .name = name };
+            state->operations->push(op);
         } break;
         case AST_EXPRESSION_TYPE_OPERATOR: {
             interpretOperatorExpression(state, expression);
+        } break;
+        case AST_EXPRESSION_TYPE_MEMBER_ACCESS: {
+            interpretMemberExpression(state, expression);
         } break;
         case AST_EXPRESSION_TYPE_PREFIX: {
             interpretPrefixExpression(state, expression);

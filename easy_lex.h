@@ -439,6 +439,8 @@ EasyToken lexGetToken_(EasyTokenizer *tokenizer, bool advanceWithToken) {
 
                 if(easyString_stringsMatch_null_and_count("u64", token.at, token.size)) {
                     token.type = TOKEN_U64_TYPE;
+                } else if(easyString_stringsMatch_null_and_count("struct", token.at, token.size)) {
+                    token.type = TOKEN_STRUCT_KEYWORD;
                 }
             } else if(lexIsNumeric(*at)) {
 

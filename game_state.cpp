@@ -4,8 +4,6 @@ void initFont(GameState *gameState) {
 
 void runCalculator(GameState *gameState, bool addSemiColor = true) {
 
-
-
     char *codeToRun = easy_createString_printf(&globalPerClearSessionArena, "%s%s",  gameState->settingsToSave.code, gameState->stringBuffer.string);
     if(addSemiColor) {
         codeToRun = easy_createString_printf(&globalPerClearSessionArena, "%s%s",  codeToRun, "\n");
@@ -17,7 +15,7 @@ void runCalculator(GameState *gameState, bool addSemiColor = true) {
 
     if(!error) {
         VmMachineState machineState  = initVmMachineState(gameState->settingsToSave.startUseRadians);
-        runCode(&machineState, gameState, gameState->operations);
+        runCode(&machineState, gameState, &gameState->operations);
         gameState->settingsToSave.code = codeToRun;
         //NOTE: Add string to history
         gameState->bufferHistory.push(easy_createString_printf(&globalLongTermArena, "%s", gameState->stringBuffer.string));
@@ -44,7 +42,6 @@ void initGameState(GameState *gameState, BackendRenderer *backendRenderer) {
     platform_setWindowSize(gameState->settingsToSave.windowX, gameState->settingsToSave.windowY);
     platform_setWindowPos(gameState->settingsToSave.windowPosX, gameState->settingsToSave.windowPosY);
 
-    gameState->operations = List<VmOperation>::init(&globalLongTermArena);
     gameState->colorPallettes = init_color_palettes();
     gameState->colorPallette = &gameState->colorPallettes.pallettes[gameState->settingsToSave.themeIndex];
     stringBuffer_init(&gameState->stringBuffer);
