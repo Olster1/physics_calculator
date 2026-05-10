@@ -122,6 +122,22 @@ void pushStackVariable(VmMachineState *state, char *name, VmOperation *values, i
     }
 }
 
+VmNumberType vmOp_getValue(VmMachineState *state, VmOperation op, OpCode desiredType);
+
+VmNumberType getValueFromStack(VmMachineState *state, u64 offset, OpCode desiredType) {
+    VmOperation *memAt = (VmOperation *)(state->stackBase + offset);
+
+    VmNumberType result = vmOp_getValue(state, *memAt, desiredType);
+    return result;
+}
+
+void setValueFromStack(VmMachineState *state, u64 offset, VmNumberType numberType) {
+    VmOperation *memAt = (VmOperation *)(state->stackBase + offset);
+    memAt->type = numberType.type;
+    memAt->raw = numberType.raw;
+}
+
+VmNumberType popAndGetValueNumber(VmMachineState *state, OpCode desiredType);
 VmNumberType vmOp_getValue(VmMachineState *state, VmOperation op, OpCode desiredType) {
     VmNumberType result = {};
 
@@ -150,43 +166,25 @@ VmNumberType vmOp_getValue(VmMachineState *state, VmOperation op, OpCode desired
             result.type = OP_CODE_FLOAT;
         }
         result.count = 1;
-    } else if(op.type == OP_CODE_VARIABLE_REFERENCE) {
-        assert(op.name);
-        StackVariable *var = getStackVariable(state, op.name);
-        assert(var);
-        result.count = var->count;
+    } else if(op.type == OP_CODE_VARIABLE_REFERENCE_OFFSET) {
+        u64 isArray = popAndGetValueNumber(state, OP_CODE_UINT).as_uint;
+        result.count = popAndGetValueNumber(state, OP_CODE_UINT).as_uint;
 
-        if(var->type == OP_CODE_RECORD_TYPE) {
-            result.type = OP_CODE_RECORD_TYPE;
-            result.as_uint = var->structSize;
-            assert(var->type == OP_CODE_RECORD_TYPE);
-            //NOTE: Is an object record type so load the whole lot onto the stack
-            u8* start = (u8 *)(state->stackBase + var->bytesOffset);
-            if((state->stackSizeBytes + var->structSize) <= state->stackSizeMaxBytes) {
-                easyPlatform_copyMemory(state->at, start, var->structSize);
-                state->at += var->structSize;
-            } else {
-                //NOTE: Stack overflow
-                assert(false);
-            }
-            //NOTE: Now a tag to say what i just pushed onto the stack to know what to get off again
-        } else if(result.count > 1 || var->type == OP_CODE_NUMBER_ARRAY) {
+        if(result.count > 1 || (isArray == 1)) {
             result.type = OP_CODE_NUMBER_ARRAY;
-            assert(var->type == OP_CODE_NUMBER_ARRAY);
             //NOTE: Is array type so load all the values on the stack
-            VmOperation* start = (VmOperation *)(state->stackBase + var->bytesOffset);
+            VmOperation* start = (VmOperation *)(state->stackBase + op.as_uint);
             for(int i = 0; i < result.count; ++i) {
                 vmMachine_push(state, start[i]);
             }
         } else {
-            result.type = OP_CODE_FLOAT;
             assert(result.count == 1);
-            VmOperation *dec = (VmOperation *)(state->stackBase + var->bytesOffset);
-            assert(dec->type == OP_CODE_FLOAT || dec->type == OP_CODE_UINT);
-            result = vmOp_getValue(state, *dec, desiredType);
+            VmNumberType dec = getValueFromStack(state, op.as_uint, OP_CODE_NONE);
+            assert(dec.type == OP_CODE_FLOAT || dec.type == OP_CODE_UINT);
+            VmOperation vmOp = { .type = dec.type, .raw = dec.raw };
+            result = vmOp_getValue(state, vmOp, desiredType);
         }
     } else if(op.type == OP_CODE_NUMBER_ARRAY) {
-        // assert(op.type == OP_CODE_FLOAT);
         result.type = OP_CODE_NUMBER_ARRAY;
         result.count = (double)op.as_float;
     } else if(op.type == OP_CODE_STRING) {
@@ -343,8 +341,15 @@ bool runCode(VmMachineState *state, GameState *gameState, ByteCodeOperations *op
                         if(value.type == OP_CODE_NUMBER_ARRAY || value.count > 1) {
                             assert(!value.name);
                             b.string = "[";
+                            //NOTE: Pull out the values first as they go from top of stack to bottom, then print them in reverse sp they're in the right order
+                            double *tempArray = pushArray(&globalPerFrameArena, value.count, double);
                             for(int i = 0; i < value.count; ++i) {
                                 double arrayValue = popAndGetValueNumber(state, OP_CODE_FLOAT).as_float;
+                                tempArray[(value.count - 1) - i] = arrayValue;
+                            }
+
+                            for(int i = 0; i < value.count; ++i) {
+                                double arrayValue = tempArray[i];
                                 b.string = easy_createString_printf(&globalPerVmRunLifetime, "%s%f", b.string, arrayValue);
                                 if(i < value.count - 1) {
                                     b.string = easy_createString_printf(&globalPerVmRunLifetime, "%s, ", b.string);
@@ -716,35 +721,60 @@ bool runCode(VmMachineState *state, GameState *gameState, ByteCodeOperations *op
                 break;
             }
             case OP_CODE_BYTE_OFFSET_REFERENCE: {
-                //TODO: Get the byte offset value
-                VmNumberType value = popAndGetValueNumber(state, OP_CODE_NONE);
-                assert(value.type == OP_CODE_RECORD_TYPE);
+                u64 isArray = popAndGetValueNumber(state, OP_CODE_UINT).as_uint;
 
-                u8 *data = vmMachine_popData(state, value.as_uint);
-                u8 *valueToPushBack = data + op->as_uint;
+                u64 addintionalIndex = popAndGetValueNumber(state, OP_CODE_UINT).as_uint;
+                //NOTE: Get the byte offset value
+                VmOperation offsetOp = vmMachine_pop(state);
+                assert(offsetOp.type == OP_CODE_VARIABLE_REFERENCE_OFFSET);
+                //NOTE: Just get the reference out, we don't want to push the whole thing to the stack
+                u64 offset = offsetOp.as_uint;
 
-                //NOTE: Now need to interpret it to know what to push it back on as
+                //NOTE: We get the variable out to get the arrayLength. Our Type checker could pick this up if we updated the variable array lengths as we
+                //      ran the interpreter when emitting the byte code. We can do this now if the array size was fixed but becuase we allow dynamic types,
+                //      the length can just throught the life of the compile. As a way round this now, we just get the current variable state out to check it.
+
+                StackVariable *var = getStackVariable(state, op->name);
+                assert(var);
+                int arrayLength = var->count;
+
+                if(addintionalIndex >= arrayLength) {
+                    assert(!"Array out of bounds error");
+                }
+                 if(addintionalIndex < 0) {
+                    assert(!"Array out of bounds error");
+                }
+
+                VmNumberType numberType = getValueFromStack(state, offset + addintionalIndex*sizeof(VmOperation), OP_CODE_NONE);
+
                 VmOperation newOp = {};
-                newOp.type = OP_CODE_FLOAT;
-                newOp.as_float = *((double *)valueToPushBack);
+                newOp.type = numberType.type;
+                newOp.raw = numberType.raw;
                 vmMachine_push(state, newOp);
 
             } break;
-            // case OP_CODE_BYTE_OFFSET_ASSIGN: {
-            //     //TODO: Get the byte offset value
-            //     VmNumberType value = popAndGetValueNumber(state, OP_CODE_NONE);
+             case OP_CODE_BYTE_OFFSET_WRITE: {
 
-            //     u8 *data = vmMachine_popData(state, value.as_uint);
-            //     u8 *valueToPushBack = data + op->as_uint;
+                u64 addintionalIndex = popAndGetValueNumber(state, OP_CODE_UINT).as_uint;
+                //NOTE: Get the byte offset value
+                VmOperation offsetOp = vmMachine_pop(state);
+                assert(offsetOp.type == OP_CODE_VARIABLE_REFERENCE_OFFSET);
+                //NOTE: Just get the reference out, we don't want to push the whole thing to the stack
+                u64 offset = offsetOp.as_uint;
 
-            //     //NOTE: Now need to interpret it to know what to push it back on as
-            //     VmOperation newOp = {};
-            //     newOp.type = OP_CODE_FLOAT;
-            //     newOp.as_float = *((double *)valueToPushBack);
-            //     vmMachine_push(state, newOp);
+                u64 isArray = popAndGetValueNumber(state, OP_CODE_UINT).as_uint;
+                u64 arrayLength = popAndGetValueNumber(state, OP_CODE_UINT).as_uint;
+                VmNumberType numberType = popAndGetValueNumber(state, OP_CODE_NONE);
 
-            // } break;
+                if(addintionalIndex >= arrayLength) {
+                    assert(!"Array out of bounds error");
+                }
+                if(addintionalIndex < 0) {
+                    assert(!"Array out of bounds error");
+                }
 
+                setValueFromStack(state, offset + addintionalIndex*sizeof(VmOperation), numberType);
+            } break;
             // --- Literals / Types ---
             case OP_CODE_FLOAT: {
                 vmMachine_push(state, *op);
@@ -759,7 +789,28 @@ bool runCode(VmMachineState *state, GameState *gameState, ByteCodeOperations *op
                 break;
             }
             case OP_CODE_VARIABLE_REFERENCE: {
-                vmMachine_push(state, *op);
+                int count = op->as_uint;
+                //NOTE: Variable reference, so instead of pushing the variable on the stack, we push the offset on
+                StackVariable *var = getStackVariable(state, op->name);
+                assert(var);
+                // result.count = var->count;
+
+                 //NOTE: The length we want to get out
+                VmOperation newOp1 = {};
+                newOp1.type = OP_CODE_UINT;
+                newOp1.as_uint = count;
+                vmMachine_push(state, newOp1);
+
+                VmOperation newOp2 = {};
+                newOp2.type = OP_CODE_UINT;
+                newOp2.as_uint = (var->type == OP_CODE_NUMBER_ARRAY) ? 1 : 0;
+                vmMachine_push(state, newOp2);
+
+                VmOperation newOp = {};
+                newOp.type = OP_CODE_VARIABLE_REFERENCE_OFFSET;
+                newOp.as_uint = var->bytesOffset;
+                vmMachine_push(state, newOp);
+
                 break;
             }
             case OP_CODE_RECORD_TYPE: {
@@ -774,7 +825,8 @@ bool runCode(VmMachineState *state, GameState *gameState, ByteCodeOperations *op
 
               if(value.count > 1 || value.type == OP_CODE_NUMBER_ARRAY) {
                     VmOperation *tempArray = pushArray(&globalPerFrameArena, value.count, VmOperation);
-                    for(int i = value.count - 1; i >= 0; --i) {
+
+                    for(int i = 0; i < value.count; ++i) {
                         VmNumberType arrayValue = popAndGetValueNumber(state, OP_CODE_NONE);
                         tempArray[i].type = arrayValue.type;
                         tempArray[i].raw = arrayValue.raw;

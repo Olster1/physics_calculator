@@ -7,7 +7,8 @@ char *save_getSettingsFileName(Arena *arena) {
 
 char *getInbuiltStructCode() {
     // return "";//"struct Math { pi = 3.14159265358979\n g = 9.807\n }\n math = Math() \n";
-    return "pi = 3.14159265358979\n g = 9.807\nhalf_g = 4.9035\ne = 2.71828182845904\nphi = 1.61803398874989\nc = 299792458\n";
+    // return "pi = 3.14159265358979\n g = 9.807\nhalf_g = 4.9035\ne = 2.71828182845904\nphi = 1.61803398874989\nc = 299792458\n";
+    return "";
 }
 
 void saveSettingsFile(SettingsToSave *settings) {
@@ -50,7 +51,6 @@ LoadSettingsFileResult loadSettingsFile(SettingsToSave *settingsToSave) {
     result.settingsToSave.code = getInbuiltStructCode();
     result.settingsToSave.windowX = global_default_window_size_x;
     result.settingsToSave.windowY = global_default_window_size_y;
-    return result;
     char *filePath = save_getSettingsFileName(&globalPerFrameArena);
     if(platformDoesFileExist(filePath)) {
         FileContents contents = platformReadEntireFile(&globalPerFrameArena, (char *)filePath, true);

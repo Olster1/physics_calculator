@@ -8,6 +8,7 @@ enum AstExpressionPrecendence {
     AST_PRECEDENCE_EXPONENT,
     AST_PRECEDENCE_BIT_OPERATIONS,
     AST_PRECEDENCE_MEMBER_ACCESS,
+    AST_PRECEDENCE_ARRAY_ACCESS,
     AST_PRECEDENCE_CALL,
 };
 
@@ -21,6 +22,7 @@ enum AstExpressionType {
     AST_EXPRESSION_TYPE_PREFIX,
     AST_EXPRESSION_TYPE_POSTFIX,
     AST_EXPRESSION_TYPE_MEMBER_ACCESS,
+    AST_EXPRESSION_TYPE_ARRAY_ACCESS,
     AST_EXPRESSION_TYPE_CALL,
 };
 
@@ -122,21 +124,21 @@ AstExpression *parsePrefixExpression(ExpressionParser *parser, EasyToken t) {
             prefix->type = AST_EXPRESSION_TYPE_PREFIX;
             prefix->right = parseExpression(parser, AST_PRECEDENCE_PREFIX);
         } break;
-        case TOKEN_OPEN_SQUARE_BRACKET: {
+        case TOKEN_OPEN_BRACKET: {
             prefix = pushStruct(&globalPerFrameArena, AstExpression);
             prefix->token = t;
             prefix->type = AST_EXPRESSION_TYPE_PREFIX;
             prefix->arguments = List<AstExpression *>::init(&globalPerFrameArena);
 
             bool parsing = true;
-            while(parsing && lexSeeNextToken(&parser->tokenizer).type != TOKEN_CLOSE_SQUARE_BRACKET) {
+            while(parsing && lexSeeNextToken(&parser->tokenizer).type != TOKEN_CLOSE_BRACKET) {
                 prefix->arguments.push(parseExpression(parser, 0));
-                if(lexSeeNextToken(&parser->tokenizer).type != TOKEN_CLOSE_SQUARE_BRACKET) {
+                if(lexSeeNextToken(&parser->tokenizer).type != TOKEN_CLOSE_BRACKET) {
                     parsing = consumeNextToken(parser, TOKEN_COMMA);
                 }
             }
 
-            consumeNextToken(parser, TOKEN_CLOSE_SQUARE_BRACKET);
+            consumeNextToken(parser, TOKEN_CLOSE_BRACKET);
         } break;
         case TOKEN_WORD:
         case TOKEN_FLOAT:
@@ -163,6 +165,9 @@ AstExpressionPrecendence getInfixPrecedenceForToken(EasyToken t) {
         case TOKEN_PLUS:
         case TOKEN_MINUS: {
             precedence = AST_PRECEDENCE_SUM;
+        } break;
+        case TOKEN_OPEN_SQUARE_BRACKET: {
+            precedence = AST_PRECEDENCE_ARRAY_ACCESS;
         } break;
         case TOKEN_EQUALS: {
             precedence = AST_PRECEDENCE_ASSIGN;
@@ -211,7 +216,16 @@ AstExpression *parseInfixExpression(ExpressionParser *parser, EasyToken t, AstEx
             infix->type = AST_EXPRESSION_TYPE_MEMBER_ACCESS;
             infix->left = left;
             infix->right = parseExpression(parser, getInfixPrecedenceForToken(t) - getAssociativityInfixPrecedence(t));
-        } break;;
+        } break;
+        case TOKEN_OPEN_SQUARE_BRACKET: {
+            infix = pushStruct(&globalPerFrameArena, AstExpression);
+            infix->token = t;
+            infix->type = AST_EXPRESSION_TYPE_ARRAY_ACCESS;
+            infix->left = left;
+
+            infix->right = parseExpression(parser, 0);
+            consumeNextToken(parser, TOKEN_CLOSE_SQUARE_BRACKET);
+        } break;
         case TOKEN_ASTRIX:
         case TOKEN_FORWARD_SLASH:
         case TOKEN_PLUS:

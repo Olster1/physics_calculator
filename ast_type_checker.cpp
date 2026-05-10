@@ -14,6 +14,7 @@ static char *AstVariableTypeStrings[] = { "none", "number", "string", "boolean" 
 
 enum TypeCheckExpressionFlags {
     TYPE_CHECK_MEMBER_ACCESS = 1 << 0,
+    TYPE_CHECK_WRITE = 1 << 1,
 };
 
 struct TypeCheckerType {
@@ -436,6 +437,40 @@ void pushMemberRecord(CompilerState *state, AstRecord *record, char *name, TypeC
     record->totalSize += ast_getTypeSize(state, type);
 }
 
+
+TypeCheckerType typeCheckArrayAccessExpression(CompilerState *state, AstExpression *expression) {
+    TypeCheckerType resultType = {};
+    assert(expression->right);
+
+    //NOTE: member access have to be just one word
+    assert(expression->left);
+    if(expression->left->token.type != TOKEN_WORD) {
+        state->parser.logError("Left hand operand must be a word.");
+    }
+    if(expression->left->type != AST_EXPRESSION_TYPE_NAMED) {
+        state->parser.logError("Left hand operand must be a name.");
+    }
+
+    TypeCheckerType leftType = typeCheckExpression(state, expression->left);
+    TypeCheckerType rightType = typeCheckExpression(state, expression->right);
+
+    if(expression->left->type != AST_EXPRESSION_TYPE_NAMED) {
+        state->parser.logError("Left hand operand must be a name.");
+    }
+
+    if(rightType.type != AST_VARIABLE_U64 && rightType.type != AST_VARIABLE_NUMBER) {
+        state->parser.logError("Right hand operand must be number.");
+    }
+
+    resultType = leftType;
+    //NOTE: Becuase it's an accessor it's a single value
+    resultType.isArray = false;
+    resultType.count = 1;
+    resultType.name = nullTerminateArena(expression->left->token.at, expression->left->token.size, &globalPerFrameArena);;
+
+    return resultType;
+}
+
 TypeCheckerType typeCheckMemberAccessExpression(CompilerState *state, AstExpression *expression) {
     TypeCheckerType resultType = {};
     assert(expression->right);
@@ -479,51 +514,65 @@ TypeCheckerType typeCheckMemberAccessExpression(CompilerState *state, AstExpress
 }
 
 TypeCheckerType typeCheckAssignExpression(CompilerState *state, AstExpression *expression) {
+
     assert(expression->right);
     TypeCheckerType rightType = typeCheckExpression(state, expression->right);
 
-    TypeCheckerType leftType = typeCheckExpression(state, expression->right);
+    state->flags |= TYPE_CHECK_WRITE;
+    TypeCheckerType leftType = typeCheckExpression(state, expression->left);
+    state->flags ^= TYPE_CHECK_WRITE;
 
     //NOTE: assigns have to be just one word
-    assert(expression->left);
-    if(expression->left->token.type != TOKEN_WORD && expression->left->type != AST_EXPRESSION_TYPE_MEMBER_ACCESS) {
-        state->parser.logError("Must assign to a variable.");
-    }
-    if(expression->left->type != AST_EXPRESSION_TYPE_NAMED && expression->left->type != AST_EXPRESSION_TYPE_MEMBER_ACCESS) {
-        state->parser.logError("Left hand operand must be a name.");
+    if(!expression->left) {
+        state->parser.logError("Assign operator must have a left hand variable to assign to.");
     }
 
-    char *name = nullTerminateArena(expression->left->token.at, expression->left->token.size, &globalPerFrameArena);
+    char *name = leftType.name;
+    assert(name);
 
-    if(state->record) {
-        //NOTE: Is a record defnition so we handle it differently
-        AstMember *member = ast_getMemberType(state->record->members, name);
+    if(expression->left->type == AST_EXPRESSION_TYPE_ARRAY_ACCESS) {
+        AstVariable *variable = getCompilerVariable(state, name);
 
-        if(!member) {
-            printf("Member not declared. Adding it now.\n");
-            pushMemberRecord(state, state->record, name, rightType, expression->right);
-            assert(ast_getMemberType(state->record->members, name));
-        } else {
-            state->parser.logError("Member already declared. You cannot add multiple members of the same name.");
+        if(!variable) {
+            state->parser.logError("Variable not declared. Variable must be declared as an array");
+        } else if(!variable->type.isArray){
+            state->parser.logError("To access an array index, the variable must be an array. ");
+        }
+    } else {
+        if(expression->left->token.type != TOKEN_WORD && expression->left->type != AST_EXPRESSION_TYPE_MEMBER_ACCESS) {
+            state->parser.logError("Must assign to a variable.");
+        }
+        if(expression->left->type != AST_EXPRESSION_TYPE_NAMED && expression->left->type != AST_EXPRESSION_TYPE_MEMBER_ACCESS) {
+            state->parser.logError("Left hand operand must be a name.");
         }
 
-    } else {
-        if(leftType.name) {
-            //NOTE: Is a member access type, so assume it already got an error
-            //      when we parsed the left hand if it didn't already exist
-        } else {
-            AstVariable *variable = getCompilerVariable(state, name);
+        if(state->record) {
+            //NOTE: Is a record defnition so we handle it differently
+            AstMember *member = ast_getMemberType(state->record->members, name);
 
-            if(!variable) {
-                printf("Variable not declared. Adding it now.\n");
-                pushCompilerVariable(state, name, rightType);
-                assert(getCompilerVariable(state, name));
-            } else if(variable->type.type != rightType.type) {
-                //NOTE: Check if the user is changing it's type
-                variable->type = rightType;
-            } else if(variable->type.count != rightType.count) {
-                //NOTE: Check if the user is changing it's count
-                variable->type = rightType;
+            if(!member) {
+                printf("Member not declared. Adding it now.\n");
+                pushMemberRecord(state, state->record, name, rightType, expression->right);
+                assert(ast_getMemberType(state->record->members, name));
+            } else {
+                state->parser.logError("Member already declared. You cannot add multiple members of the same name.");
+            }
+
+        } else {
+            {
+                AstVariable *variable = getCompilerVariable(state, name);
+
+                if(!variable) {
+                    printf("Variable not declared. Adding it now.\n");
+                    pushCompilerVariable(state, name, rightType);
+                    assert(getCompilerVariable(state, name));
+                } else if(variable->type.type != rightType.type) {
+                    //NOTE: Check if the user is changing it's type
+                    variable->type = rightType;
+                } else if(variable->type.count != rightType.count) {
+                    //NOTE: Check if the user is changing it's count
+                    variable->type = rightType;
+                }
             }
         }
     }
@@ -657,7 +706,7 @@ TypeCheckerType typeCheckPrefixExpression(CompilerState *state, AstExpression *e
                 state->parser.logError("You can't typecast arrays");
             }
         } break;
-        case TOKEN_OPEN_SQUARE_BRACKET: {
+        case TOKEN_OPEN_BRACKET: {
             //NOTE: Array declaration
             result = typeCheckArrayExpression(state, expression);
         } break;
@@ -750,12 +799,18 @@ TypeCheckerType typeCheckExpression(CompilerState *state, AstExpression *express
                 result.type = AST_VARIABLE_RECORD;
                 result.name = name;
             } else {
-                AstVariable *variable = getCompilerVariable(state, name);
-
-                if(!variable) {
-                    state->parser.error = "Variable not declared";
+                if(state->flags & TYPE_CHECK_WRITE) {
+                    //NOTE: Don't check if variable exists yet
+                    result.name = name;
                 } else {
-                    result = variable->type;
+                    AstVariable *variable = getCompilerVariable(state, name);
+
+                    if(!variable) {
+                        state->parser.error = "Variable not declared";
+                    } else {
+                        result = variable->type;
+                        result.name = name;
+                    }
                 }
             }
         } break;
@@ -773,6 +828,9 @@ TypeCheckerType typeCheckExpression(CompilerState *state, AstExpression *express
         } break;
         case AST_EXPRESSION_TYPE_CALL: {
             result = typeCheckCallExpression(state, expression);
+        } break;
+        case AST_EXPRESSION_TYPE_ARRAY_ACCESS: {
+            result = typeCheckArrayAccessExpression(state, expression);
         } break;
         default: {
             assert(false);
