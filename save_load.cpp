@@ -7,8 +7,8 @@ char *save_getSettingsFileName(Arena *arena) {
 
 char *getInbuiltStructCode() {
     // return "";//"struct Math { pi = 3.14159265358979\n g = 9.807\n }\n math = Math() \n";
-    // return "pi = 3.14159265358979\n g = 9.807\nhalf_g = 4.9035\ne = 2.71828182845904\nphi = 1.61803398874989\nc = 299792458\n";
-    return "";
+    return "pi = 3.14159265358979\n g = 9.807\nhalf_g = 4.9035\ne = 2.71828182845904\nphi = 1.61803398874989\nc = 299792458\n";
+    // return "";
 }
 
 void saveSettingsFile(SettingsToSave *settings) {
