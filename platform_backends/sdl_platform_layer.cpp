@@ -193,12 +193,59 @@ int main(int argc, char** argv) {
         }
         if (e.key.key == SDLK_LEFT) {
           if(gameState->mode == INTERACTION_MODE_DEFAULT) {
-            stringBuffer_cursorLeft(&gameState->stringBuffer, 1);
+            if((e.key.mod & SDL_KMOD_LGUI) && gameState->stringBuffer.string) {
+              gameState->stringBuffer.cursor = 0;
+            } else if((e.key.mod & SDL_KMOD_LALT) && gameState->stringBuffer.string) {
+              //NOTE: Move via tokens
+              EasyTokenizer tokenizer = lexBeginParsing(gameState->stringBuffer.string, EASY_LEX_OPTION_EAT_WHITE_SPACE_EXCEPT_NEW_LINE);
+              char *lastPos = gameState->stringBuffer.string;
+              char *cursorAt = gameState->stringBuffer.string + gameState->stringBuffer.cursor;
+              bool parsing = true;
+              while(parsing) {
+                EasyToken t = lexGetNextToken(&tokenizer);
+                if(t.type == TOKEN_NULL_TERMINATOR || t.type == TOKEN_NEWLINE) {
+                    gameState->stringBuffer.cursor -= (cursorAt - lastPos);
+                    parsing = false;
+                } else {
+                  //NOTE: Get the position
+                  if(tokenizer.src >= cursorAt) {
+                    gameState->stringBuffer.cursor -= (cursorAt - lastPos);
+                    parsing = false;
+                  }
+                  lastPos = tokenizer.src;
+                }
+              }
+            } else {
+              stringBuffer_cursorLeft(&gameState->stringBuffer, 1);
+            }
           }
         }
         if (e.key.key == SDLK_RIGHT) {
           if(gameState->mode == INTERACTION_MODE_DEFAULT) {
-            stringBuffer_cursorRight(&gameState->stringBuffer, 1);
+            if((e.key.mod & SDL_KMOD_LGUI) && gameState->stringBuffer.string) {
+              int maxLength = easyString_getStringLength_utf8(gameState->stringBuffer.string);
+              gameState->stringBuffer.cursor = maxLength;
+            } else if((e.key.mod & SDL_KMOD_LALT) && gameState->stringBuffer.string) {
+              //NOTE: Move via tokens
+              EasyTokenizer tokenizer = lexBeginParsing(gameState->stringBuffer.string, EASY_LEX_OPTION_EAT_WHITE_SPACE_EXCEPT_NEW_LINE);
+              char *cursorAt = gameState->stringBuffer.string + gameState->stringBuffer.cursor;
+              bool parsing = true;
+              while(parsing) {
+                EasyToken t = lexGetNextToken(&tokenizer);
+                if(t.type == TOKEN_NULL_TERMINATOR || t.type == TOKEN_NEWLINE) {
+                    parsing = false;
+                } else {
+                  //NOTE: Get the position
+                  if(tokenizer.src > cursorAt) {
+                    gameState->stringBuffer.cursor += (tokenizer.src - cursorAt);
+                    parsing = false;
+                  }
+                }
+              }
+
+            } else {
+              stringBuffer_cursorRight(&gameState->stringBuffer, 1);
+            }
           }
         }
         if (e.key.key == SDLK_DOWN) {
@@ -207,7 +254,7 @@ int main(int argc, char** argv) {
               gameState->historyAt++;
               if(gameState->historyAt < gameState->bufferHistory.count) {
                 clearStringBuffer(&gameState->stringBuffer);
-                stringBuffer_insertString(&gameState->stringBuffer, gameState->bufferHistory[gameState->historyAt]);
+                stringBuffer_insertString(&gameState->stringBuffer, gameState->bufferHistory[gameState->historyAt].output);
                 gameState->currentCompilerError = 0;
               } else {
                 clearStringBuffer(&gameState->stringBuffer);
@@ -227,7 +274,7 @@ int main(int argc, char** argv) {
             if(gameState->historyAt > 0) {
               gameState->historyAt--;
               clearStringBuffer(&gameState->stringBuffer);
-              stringBuffer_insertString(&gameState->stringBuffer, gameState->bufferHistory[gameState->historyAt]);
+              stringBuffer_insertString(&gameState->stringBuffer, gameState->bufferHistory[gameState->historyAt].output);
               gameState->currentCompilerError = 0;
             }
           } else if(gameState->mode == INTERACTION_MODE_PICK_THEME) {

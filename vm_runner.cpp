@@ -253,6 +253,10 @@ double vm_getAngle(VmMachineState *state, double value) {
     return (state->useRadians) ? value : degreesToRadians(value);
 }
 
+double vm_radiansToDegrees(VmMachineState *state, double value) {
+    return (state->useRadians) ? value : radiansToDegrees(value);
+}
+
 double vm_getLiteralValueAsFloat(VmNumberType numberType) {
     double result = 0;
     if(numberType.type == OP_CODE_FLOAT) {
@@ -511,13 +515,6 @@ bool runCode(VmMachineState *state, GameState *gameState, ByteCodeOperations *op
                 vmMachine_push(state, newOp);
                 break;
             }
-            case OP_CODE_ARCSIN: {
-                double value = popAndGetValueNumber(state, OP_CODE_FLOAT).as_float;
-                VmOperation newOp = { .type = OP_CODE_FLOAT };
-                newOp.as_float = asin(vm_getAngle(state, value));
-                vmMachine_push(state, newOp);
-                break;
-            }
              case OP_CODE_SQR: {
                 double value = popAndGetValueNumber(state, OP_CODE_FLOAT).as_float;
                 VmOperation newOp = { .type = OP_CODE_FLOAT} ;
@@ -532,17 +529,24 @@ bool runCode(VmMachineState *state, GameState *gameState, ByteCodeOperations *op
                 vmMachine_push(state, newOp);
                 break;
             }
+             case OP_CODE_ARCSIN: {
+                double value = popAndGetValueNumber(state, OP_CODE_FLOAT).as_float;
+                VmOperation newOp = { .type = OP_CODE_FLOAT };
+                newOp.as_float =  vm_radiansToDegrees(state, asin(value));
+                vmMachine_push(state, newOp);
+                break;
+            }
             case OP_CODE_ARCCOS: {
                 double value = popAndGetValueNumber(state, OP_CODE_FLOAT).as_float;
                 VmOperation newOp = { .type = OP_CODE_FLOAT };
-                newOp.as_float = acos(vm_getAngle(state, value));
+                newOp.as_float = vm_radiansToDegrees(state, acos(value));
                 vmMachine_push(state, newOp);
                 break;
             }
             case OP_CODE_ARCTAN: {
                 double value = popAndGetValueNumber(state, OP_CODE_FLOAT).as_float;
                 VmOperation newOp = { .type = OP_CODE_FLOAT };
-                newOp.as_float = atan(vm_getAngle(state, value));
+                newOp.as_float = vm_radiansToDegrees(state, atan(value));
                 vmMachine_push(state, newOp);
                 break;
             }
@@ -550,7 +554,7 @@ bool runCode(VmMachineState *state, GameState *gameState, ByteCodeOperations *op
                 double value = popAndGetValueNumber(state, OP_CODE_FLOAT).as_float;
                 double value1 = popAndGetValueNumber(state, OP_CODE_FLOAT).as_float;
                 VmOperation newOp = { .type = OP_CODE_FLOAT};
-                newOp.as_float = atan2(vm_getAngle(state, value1), vm_getAngle(state, value));
+                newOp.as_float = vm_radiansToDegrees(state, atan2(value1, value));
                 vmMachine_push(state, newOp);
                 break;
             }

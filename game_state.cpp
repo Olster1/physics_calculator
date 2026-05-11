@@ -18,7 +18,9 @@ void runCalculator(GameState *gameState, bool addSemiColor = true) {
         runCode(&machineState, gameState, &gameState->operations);
         gameState->settingsToSave.code = codeToRun;
         //NOTE: Add string to history
-        gameState->bufferHistory.push(easy_createString_printf(&globalLongTermArena, "%s", gameState->stringBuffer.string));
+        CalculatorLine *c = &gameState->calculatorLinesParent.calculatorLines[gameState->calculatorLinesParent.calculatorLineCount - 1];
+        gameState->bufferHistory.push({.input = easy_createString_printf(&globalLongTermArena, "%s", c->in), .output = easy_createString_printf(&globalLongTermArena, "%s", c->out)});
+
         gameState->historyAt = gameState->bufferHistory.count;
         clearStringBuffer(&gameState->stringBuffer);
         saveSettingsFile(&gameState->settingsToSave);
@@ -46,7 +48,7 @@ void initGameState(GameState *gameState, BackendRenderer *backendRenderer) {
     gameState->colorPallette = &gameState->colorPallettes.pallettes[gameState->settingsToSave.themeIndex];
     stringBuffer_init(&gameState->stringBuffer);
 
-    gameState->bufferHistory = List<char *>::init(&globalLongTermArena);
+    gameState->bufferHistory = List<BufferHistory>::init(&globalLongTermArena);
 
     //NOTE: Run the calculator if there was code save from previous session
     if(easyString_getSizeInBytes_utf8(gameState->settingsToSave.code) > 0) {

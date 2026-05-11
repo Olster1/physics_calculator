@@ -3,6 +3,11 @@ enum InteractionMode {
     INTERACTION_MODE_PICK_THEME,
 };
 
+struct BufferHistory {
+    char *input;
+    char *output;
+};
+
 struct GameState {
     bool initialized;
 
@@ -18,7 +23,7 @@ struct GameState {
 
     ByteCodeOperations operations;
     int historyAt;
-    List<char *> bufferHistory; //NOTE: Strings users have entered already which last the lifetime of the program
+    List<BufferHistory> bufferHistory; //NOTE: Strings users have entered already which last the lifetime of the program
 
     EasyUi_State uiState;
 
