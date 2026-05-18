@@ -725,7 +725,7 @@ bool runCode(VmMachineState *state, GameState *gameState, ByteCodeOperations *op
                 break;
             }
             case OP_CODE_BYTE_OFFSET_REFERENCE: {
-                u64 isArray = popAndGetValueNumber(state, OP_CODE_UINT).as_uint;
+                // u64 isArray = popAndGetValueNumber(state, OP_CODE_UINT).as_uint;
 
                 u64 addintionalIndex = popAndGetValueNumber(state, OP_CODE_UINT).as_uint;
                 //NOTE: Get the byte offset value
@@ -738,9 +738,12 @@ bool runCode(VmMachineState *state, GameState *gameState, ByteCodeOperations *op
                 //      ran the interpreter when emitting the byte code. We can do this now if the array size was fixed but becuase we allow dynamic types,
                 //      the length can just throught the life of the compile. As a way round this now, we just get the current variable state out to check it.
 
-                StackVariable *var = getStackVariable(state, op->name);
-                assert(var);
-                int arrayLength = var->count;
+                //NOTE: these are put on by variable references, to know if the variable is an array or not when using it. 
+                //         But since we know this code is only accessed by this array accessor atm, we don;t need them here
+                VmOperation isArrayDiscard = vmMachine_pop(state); 
+                int arrayCount = popAndGetValueNumber(state, OP_CODE_UINT).as_uint;
+               
+                int arrayLength = arrayCount;
 
                 if(addintionalIndex >= arrayLength) {
                     assert(!"Array out of bounds error");

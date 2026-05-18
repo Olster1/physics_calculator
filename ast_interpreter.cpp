@@ -167,8 +167,8 @@ void interpretArrayAccessExpression(CompilerState *state, AstExpression *express
     interpretExpression(state, expression->right);
 
     if(!(state->flags & TYPE_CHECK_WRITE)) {
-        VmOperation op = { .type = OP_CODE_UINT, .as_uint = (u64)(variable->type.isArray ? 1 : 0 )};
-        state->operations->push(op);
+        // VmOperation op = { .type = OP_CODE_UINT, .as_uint = (u64)(variable->type.isArray ? 1 : 0 )};
+        // state->operations->push(op);
 
         // VmOperation op1 = { .type = OP_CODE_UINT, .as_uint = (u64)variable->type.count };
         // state->operations->push(op1);

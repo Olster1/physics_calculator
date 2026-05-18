@@ -114,55 +114,8 @@ static void updateFrame(void* arg) {
 
 }
 
-int main(int argc, char** argv) {
-  if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO)) {
-    SDL_Log("SDL_Init failed: %s", SDL_GetError());
-    return 1;
-  }
-
-  int flags = SDL_WINDOW_RESIZABLE;
-
-  if(OPENGL_BUILD) {
-    flags |= SDL_WINDOW_OPENGL;
-  }
-
-  int w = 1920;
-  int h = 1080;
-
-  window = SDL_CreateWindow(DEFINED_FILE_NAME,
-    w, h, flags);
-  if (!window) {
-    SDL_Log("CreateWindow failed: %s", SDL_GetError());
-    return 1;
-  }
-
-  BackendRenderer backendRenderer = {};
-  backend_render_init(window, &backendRenderer);
-
-  backend_render_getOutputSize(&w, &h);
-  platform_setWindowSize(w, h);
-
-  global_default_window_size_x = w;
-  global_default_window_size_y = h;
-
-  //NOTE: Seed random sequence
-  srand((unsigned int)time(NULL));
-
-  initMemoryArenas();
-  GameState *gameState = allocateGameState(&backendRenderer);
-  gameState->aspectRatioWindow_y_over_x = (float)h / (float)w;
-
-  lastTicks = SDL_GetTicks();
-
-  SDL_StartTextInput(window);
-
-  bool running = true;
-  while (running) {
-    SDL_Event e;
-    gameState->scrollWheelDelta.x = 0;
-    gameState->scrollWheelDelta.y = 0;
-    while (SDL_PollEvent(&e)) {
-      if (e.type == SDL_EVENT_QUIT) running = false;
+void processEvent(GameState *gameState, SDL_Event e, int *w, int *h, bool *running) {
+  if (e.type == SDL_EVENT_QUIT) *running = false;
       if (e.type == SDL_EVENT_MOUSE_WHEEL) {
         gameState->scrollWheelDelta.y = e.wheel.y;
         gameState->scrollWheelDelta.x = e.wheel.x;
@@ -254,7 +207,11 @@ int main(int argc, char** argv) {
               gameState->historyAt++;
               if(gameState->historyAt < gameState->bufferHistory.count) {
                 clearStringBuffer(&gameState->stringBuffer);
-                stringBuffer_insertString(&gameState->stringBuffer, gameState->bufferHistory[gameState->historyAt].output);
+                char *str = gameState->bufferHistory[gameState->historyAt].output;
+                if(e.key.mod & SDL_KMOD_SHIFT) {
+                  str = gameState->bufferHistory[gameState->historyAt].input;
+                }
+                stringBuffer_insertString(&gameState->stringBuffer, str);
                 gameState->currentCompilerError = 0;
               } else {
                 clearStringBuffer(&gameState->stringBuffer);
@@ -274,7 +231,11 @@ int main(int argc, char** argv) {
             if(gameState->historyAt > 0) {
               gameState->historyAt--;
               clearStringBuffer(&gameState->stringBuffer);
-              stringBuffer_insertString(&gameState->stringBuffer, gameState->bufferHistory[gameState->historyAt].output);
+              char *str = gameState->bufferHistory[gameState->historyAt].output;
+              if(e.key.mod & SDL_KMOD_SHIFT) {
+                str = gameState->bufferHistory[gameState->historyAt].input;
+              }
+              stringBuffer_insertString(&gameState->stringBuffer, str);
               gameState->currentCompilerError = 0;
             }
           } else if(gameState->mode == INTERACTION_MODE_PICK_THEME) {
@@ -295,15 +256,15 @@ int main(int argc, char** argv) {
       }
 
       if (e.type == SDL_EVENT_WINDOW_RESIZED) {
-        w = e.window.data1;
-        h = e.window.data2;
-        gameState->aspectRatioWindow_y_over_x = (float)h / (float)w;
-        gameState->settingsToSave.windowX = w;
-        gameState->settingsToSave.windowY = h;
+        *w = e.window.data1;
+        *h = e.window.data2;
+        gameState->aspectRatioWindow_y_over_x = (float)*h / (float)*w;
+        gameState->settingsToSave.windowX = *w;
+        gameState->settingsToSave.windowY = *h;
 
         saveSettingsFile(&gameState->settingsToSave);
 
-        backendRenderer_setViewport(0, 0, w, h);
+        backendRenderer_setViewport(0, 0, *w, *h);
 
       }
       if (e.type == SDL_EVENT_WINDOW_MOVED) {
@@ -318,7 +279,69 @@ int main(int argc, char** argv) {
         gameState->currentCompilerError = 0;
       }
 
+}
+
+int main(int argc, char** argv) {
+  if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO)) {
+    SDL_Log("SDL_Init failed: %s", SDL_GetError());
+    return 1;
+  }
+
+  int flags = SDL_WINDOW_RESIZABLE;
+
+  if(OPENGL_BUILD) {
+    flags |= SDL_WINDOW_OPENGL;
+  }
+
+  int w = 1920;
+  int h = 1080;
+
+  window = SDL_CreateWindow(DEFINED_FILE_NAME,
+    w, h, flags);
+  if (!window) {
+    SDL_Log("CreateWindow failed: %s", SDL_GetError());
+    return 1;
+  }
+
+  BackendRenderer backendRenderer = {};
+  backend_render_init(window, &backendRenderer);
+
+  backend_render_getOutputSize(&w, &h);
+  platform_setWindowSize(w, h);
+
+  global_default_window_size_x = w;
+  global_default_window_size_y = h;
+
+  //NOTE: Seed random sequence
+  srand((unsigned int)time(NULL));
+
+  initMemoryArenas();
+  GameState *gameState = allocateGameState(&backendRenderer);
+  gameState->aspectRatioWindow_y_over_x = (float)h / (float)w;
+
+  lastTicks = SDL_GetTicks();
+
+  SDL_StartTextInput(window);
+
+  int framesAfterEventCount = 0;
+  bool running = true;
+  while (running) {
+    SDL_Event e;
+    gameState->scrollWheelDelta.x = 0;
+    gameState->scrollWheelDelta.y = 0;
+
+    if(framesAfterEventCount < MAX_FRAMES_AFTER_EVENT_TO_RUN) {
+      while(SDL_PollEvent(&e)) {
+        processEvent(gameState, e, &w, &h, &running);
+        framesAfterEventCount = 0;
+      }
+    } else if (SDL_WaitEvent(&e)) {
+        do {
+          processEvent(gameState, e, &w, &h, &running);
+          framesAfterEventCount = 0;
+        } while(SDL_PollEvent(&e));
     }
+
     refreshPerFrameArena();
 
     UpdateLoopData data = {};
@@ -328,6 +351,10 @@ int main(int argc, char** argv) {
     data.backendRenderer = &backendRenderer;
     updateFrame(&data);
     gameState->enterPressed = false;
+
+    if(framesAfterEventCount < MAX_FRAMES_AFTER_EVENT_TO_RUN) {
+      framesAfterEventCount++;
+    }
   }
   SDL_Quit();
 

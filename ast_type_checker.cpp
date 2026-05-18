@@ -551,7 +551,7 @@ TypeCheckerType typeCheckAssignExpression(CompilerState *state, AstExpression *e
             AstMember *member = ast_getMemberType(state->record->members, name);
 
             if(!member) {
-                printf("Member not declared. Adding it now.\n");
+                // printf("Member not declared. Adding it now.\n");
                 pushMemberRecord(state, state->record, name, rightType, expression->right);
                 assert(ast_getMemberType(state->record->members, name));
             } else {
@@ -563,7 +563,7 @@ TypeCheckerType typeCheckAssignExpression(CompilerState *state, AstExpression *e
                 AstVariable *variable = getCompilerVariable(state, name);
 
                 if(!variable) {
-                    printf("Variable not declared. Adding it now.\n");
+                    // printf("Variable not declared. Adding it now.\n");
                     pushCompilerVariable(state, name, rightType);
                     assert(getCompilerVariable(state, name));
                 } else if(variable->type.type != rightType.type) {
@@ -762,7 +762,7 @@ TypeCheckerType typeCheckOperatorExpression(CompilerState *state, AstExpression 
 AstRecord *ast_addNewRecord(CompilerState *state, char *name) {
     AstRecord record = AstRecord::init(name);
     AstRecord *result = state->records.insert(name, record);
-    printf("Record added %s\n", name);
+    // printf("Record added %s\n", name);
     return result;
 }
 
