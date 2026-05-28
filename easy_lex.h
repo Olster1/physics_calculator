@@ -65,6 +65,7 @@ FUNC(TOKEN_OPEN_PARENTHESIS) \
 FUNC(TOKEN_NEWLINE) \
 FUNC(TOKEN_CLOSE_PARENTHESIS) \
 FUNC(TOKEN_FORWARD_SLASH) \
+FUNC(TOKEN_FORWARD_SLASH_WITH_TILDE) \
 FUNC(TOKEN_AT_SYMBOL) \
 FUNC(TOKEN_ASTRIX) \
 FUNC(TOKEN_COMMENT) \
@@ -357,6 +358,13 @@ EasyToken lexGetToken_(EasyTokenizer *tokenizer, bool advanceWithToken) {
         } break;
         case '*': {
             token = lexInitToken(TOKEN_ASTRIX, at, 1, *lineNumber);
+            at++;
+        } break;
+        case '~': {
+            if((*(at + 1)) == '/') {
+                token = lexInitToken(TOKEN_FORWARD_SLASH_WITH_TILDE, at, 2, *lineNumber);
+                at++; //NOTE: Move pass the tilde
+            }
             at++;
         } break;
         case '+': {

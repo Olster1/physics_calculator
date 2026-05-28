@@ -12,8 +12,8 @@ struct Font {
 Font initFontAtlas(unsigned char *ttfBuffer) {
     Font result = {};
 
-    int tempBitmapWidth = 512;
-    int tempBitmapHeight = 512;
+    int tempBitmapWidth = 1024;
+    int tempBitmapHeight = 1024;
 
     result.fontAtlasDim.x = tempBitmapWidth;
     result.fontAtlasDim.y = tempBitmapHeight;
@@ -23,9 +23,9 @@ Font initFontAtlas(unsigned char *ttfBuffer) {
     assert(tempBitmap);
 
     result.fontHeight = 64.0;
-    result.startOffset = 0;
-    int numberOfCharacters = 128;
-    //NOTE:  32, 96 values denote the main ASCI alphabet - starting at [SPACE] and going to the end of the asci table. The space is important because it tells us the width of a space.
+    result.startOffset = 32;
+    int numberOfCharacters = 96;
+    //NOTE:  32, 96 values denote the ASCI alphabet - starting at [SPACE] and going to the end of the asci table. The space is important because it tells us the width of a space.
     int r = stbtt_BakeFontBitmap(ttfBuffer, 0, result.fontHeight, tempBitmap, tempBitmapWidth, tempBitmapHeight, result.startOffset, numberOfCharacters, result.glyphData);
 
     if(r == 0) {
@@ -75,7 +75,7 @@ Rect2f renderText(Renderer *renderer, Font *font, char *nullTerminatedString, fl
                 char characterToRender = token.at[i];
 
                 if(characterToRender != '\n') {
-                    if (characterToRender >= 32 && characterToRender < 126) {
+                    if (characterToRender >= 32 && characterToRender <= 126) {
 
                         stbtt_aligned_quad q  = {};
 

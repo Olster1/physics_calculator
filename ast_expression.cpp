@@ -176,6 +176,7 @@ AstExpressionPrecendence getInfixPrecedenceForToken(EasyToken t) {
             precedence = AST_PRECEDENCE_MEMBER_ACCESS;
         } break;
         case TOKEN_ASTRIX:
+        case TOKEN_FORWARD_SLASH_WITH_TILDE:
         case TOKEN_FORWARD_SLASH: {
             precedence = AST_PRECEDENCE_PRODUCT;
         } break;
@@ -228,6 +229,7 @@ AstExpression *parseInfixExpression(ExpressionParser *parser, EasyToken t, AstEx
         } break;
         case TOKEN_ASTRIX:
         case TOKEN_FORWARD_SLASH:
+        case TOKEN_FORWARD_SLASH_WITH_TILDE:
         case TOKEN_PLUS:
         case TOKEN_CARROT:
         case TOKEN_BIT_AND:

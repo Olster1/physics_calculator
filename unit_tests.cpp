@@ -28,6 +28,7 @@ void runLanguageUnitTests(GameState *gameState) {
     UnitTestResults results = {};
     results.gameState = gameState;
     runUnitTest(&results, "3+3;", 6);
+    runUnitTest(&results, "2~/3;", 1);
     runUnitTest(&results, "-3;", -3);
     runUnitTest(&results, "-3*-2;", 6);
     runUnitTest(&results, "-3-3*-2;", 3);

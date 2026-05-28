@@ -269,6 +269,18 @@ double vm_getLiteralValueAsFloat(VmNumberType numberType) {
     return result;
 }
 
+int64_t vm_getLiteralValueAsInt(VmNumberType numberType) {
+    int64_t result = 0;
+    if(numberType.type == OP_CODE_FLOAT) {
+        result = (int64_t)numberType.as_float;
+    } else if(numberType.type == OP_CODE_UINT) {
+        result = numberType.as_int;
+    } else {
+        assert(false);
+    }
+    return result;
+}
+
 bool runCode(VmMachineState *state, GameState *gameState, ByteCodeOperations *operations, bool isUnitTest = false) {
     bool clear = false;
 
@@ -632,22 +644,26 @@ bool runCode(VmMachineState *state, GameState *gameState, ByteCodeOperations *op
                 }
                 break;
             }
+            case OP_CODE_DIVIDE_INT: {
+                VmNumberType op = popAndGetValueNumber(state, OP_CODE_NONE);
+                VmNumberType op1 = popAndGetValueNumber(state, OP_CODE_NONE);
+
+                VmOperation newOp = {};
+                newOp.type = OP_CODE_UINT;
+                newOp.as_int = vm_getLiteralValueAsInt(op1) / vm_getLiteralValueAsInt(op);
+                vmMachine_push(state, newOp);
+
+                break;
+            }
             case OP_CODE_DIVIDE: {
                 VmNumberType op = popAndGetValueNumber(state, OP_CODE_NONE);
                 VmNumberType op1 = popAndGetValueNumber(state, OP_CODE_NONE);
+
                 VmOperation newOp = {};
-                if(op.type == OP_CODE_FLOAT || op1.type == OP_CODE_FLOAT) {
-                    newOp.type = OP_CODE_FLOAT;
-                    newOp.as_float = vm_getLiteralValueAsFloat(op1) / vm_getLiteralValueAsFloat(op);
-                    vmMachine_push(state, newOp);
-                } else if(op.type == OP_CODE_UINT && op1.type == OP_CODE_UINT) {
-                    newOp.type = OP_CODE_UINT;
-                    newOp.as_int = op1.as_int / op.as_int;
-                    vmMachine_push(state, newOp);
-                } else {
-                    printf("%s %s\n",OpCodeTypeStrings[op.type], OpCodeTypeStrings[op1.type]);
-                    assert(false);
-                }
+                newOp.type = OP_CODE_FLOAT;
+                newOp.as_float = vm_getLiteralValueAsFloat(op1) / vm_getLiteralValueAsFloat(op);
+                vmMachine_push(state, newOp);
+
                 break;
             }
             case OP_CODE_POWER_TO: {
@@ -738,11 +754,11 @@ bool runCode(VmMachineState *state, GameState *gameState, ByteCodeOperations *op
                 //      ran the interpreter when emitting the byte code. We can do this now if the array size was fixed but becuase we allow dynamic types,
                 //      the length can just throught the life of the compile. As a way round this now, we just get the current variable state out to check it.
 
-                //NOTE: these are put on by variable references, to know if the variable is an array or not when using it. 
+                //NOTE: these are put on by variable references, to know if the variable is an array or not when using it.
                 //         But since we know this code is only accessed by this array accessor atm, we don;t need them here
-                VmOperation isArrayDiscard = vmMachine_pop(state); 
+                VmOperation isArrayDiscard = vmMachine_pop(state);
                 int arrayCount = popAndGetValueNumber(state, OP_CODE_UINT).as_uint;
-               
+
                 int arrayLength = arrayCount;
 
                 if(addintionalIndex >= arrayLength) {

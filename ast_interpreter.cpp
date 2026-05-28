@@ -202,6 +202,10 @@ void interpretOperatorExpression(CompilerState *state, AstExpression *expression
             VmOperation op = { .type = OP_CODE_DIVIDE };
             state->operations->push(op);
         } break;
+        case TOKEN_FORWARD_SLASH_WITH_TILDE: {
+            VmOperation op = { .type = OP_CODE_DIVIDE_INT };
+            state->operations->push(op);
+        } break;
         case TOKEN_CARROT: {
             VmOperation op = { .type = OP_CODE_POWER_TO };
             state->operations->push(op);

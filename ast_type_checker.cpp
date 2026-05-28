@@ -741,6 +741,7 @@ TypeCheckerType typeCheckOperatorExpression(CompilerState *state, AstExpression 
             case TOKEN_MINUS:
             case TOKEN_ASTRIX:
             case TOKEN_FORWARD_SLASH:
+            case TOKEN_FORWARD_SLASH_WITH_TILDE:
             case TOKEN_BIT_SHIFT_RIGHT:
             case TOKEN_BIT_SHIFT_LEFT:
             case TOKEN_BIT_AND:
